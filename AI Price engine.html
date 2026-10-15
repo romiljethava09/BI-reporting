@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RJAI Pricing Engine — ACRISS Pricing Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#0A0A08;
+    --panel:#141210;
+    --panel-2:#1C1810;
+    --border:#3D3418;
+    --text:#F2EEE0;
+    --muted:#A39A78;
+    --accent:#D4AF37;
+    --accent-dim:#6B551A;
+    --green:#22C55E;
+    --green-bg:rgba(34,197,94,0.14);
+    --accent-bg:rgba(212,175,55,0.14);
+    --red:#E5586A;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'Inter', system-ui, sans-serif;
+    --head:'Space Grotesk', system-ui, sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#F3F1EA;
+    --panel:#FFFFFF;
+    --panel-2:#F0EDE4;
+    --border:#DBD5C4;
+    --text:#1B1A16;
+    --muted:#77705E;
+    --accent:#A9781A;
+    --accent-dim:#D8C285;
+    --green:#158C4C;
+    --green-bg:rgba(21,140,76,0.12);
+    --accent-bg:rgba(169,120,26,0.12);
+    --red:#C43D3D;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--sans); font-size:14px;}
+  ::selection{background:var(--accent); color:#1a1200;}
+
+  .shell{display:flex; flex-direction:column; min-height:100vh;}
+  .topbar{
+    background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20;
+  }
+  .brand-row{display:flex; align-items:center; justify-content:space-between; padding:14px 28px 10px 28px; gap:18px;}
+  .brand{display:flex; align-items:center; gap:10px;}
+  .brand .logo-mini{width:30px; height:30px; flex:0 0 30px;}
+  .brand .mark{font-family:var(--head); font-weight:700; font-size:18px; letter-spacing:0.2px;}
+  .brand .mark span{color:var(--accent);}
+  .brand .sub{color:var(--muted); font-size:11px; margin-top:1px;}
+
+  .status-row{display:flex; gap:8px; flex-wrap:wrap;}
+  .stat-pill{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:20px; padding:5px 12px;
+    font-size:11px; color:var(--muted); display:flex; gap:6px; align-items:center;
+  }
+  .stat-pill b{font-family:var(--mono); color:var(--text); font-weight:500;}
+  .btn-logout{all:unset; cursor:pointer; font-size:11.5px; color:var(--muted); padding:6px 10px; border-radius:7px; border:1px solid var(--border);}
+  .btn-logout:hover{color:var(--text); border-color:var(--accent);}
+
+  .theme-switch{display:flex; gap:2px; background:var(--panel-2); border:1px solid var(--border); border-radius:20px; padding:2px;}
+  .theme-btn{
+    all:unset; cursor:pointer; font-size:11px; font-family:var(--sans); font-weight:600; color:var(--muted);
+    padding:5px 11px; border-radius:16px; transition:background .15s ease, color .15s ease;
+  }
+  .theme-btn:hover{color:var(--text);}
+  .theme-btn.active{background:var(--accent); color:#1a1200;}
+
+  nav.tabs{
+    display:flex; gap:2px; padding:0 22px; overflow-x:auto; scrollbar-width:none;
+  }
+  nav.tabs::-webkit-scrollbar{display:none;}
+  nav.tabs button{
+    all:unset; cursor:pointer; padding:11px 16px; font-size:13px; white-space:nowrap;
+    color:var(--muted); display:flex; align-items:center; gap:8px; font-weight:500;
+    border-bottom:2.5px solid transparent; transition:color .15s ease, border-color .15s ease;
+  }
+  nav.tabs button .n{font-family:var(--mono); font-size:10.5px; color:var(--muted); transition:color .15s ease;}
+  nav.tabs button:hover{color:var(--text);}
+  nav.tabs button.active{color:var(--text); border-color:var(--accent);}
+  nav.tabs button.active .n{color:var(--accent);}
+
+  .main{flex:1; padding:26px 34px 60px 34px; max-width:1480px; width:100%; margin:0 auto; animation:fadeUp .35s ease;}
+  @keyframes fadeUp{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+  @media (max-width:760px){ .brand-row{flex-direction:column; align-items:flex-start;} .main{padding:20px 16px 50px 16px;} }
+  .page-head{margin-bottom:22px;}
+  .page-head h1{font-family:var(--head); font-size:21px; margin:0 0 5px 0; font-weight:600;}
+  .page-head p{color:var(--muted); margin:0; font-size:13px; max-width:760px; line-height:1.55;}
+
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:18px;}
+  .panel h2{font-family:var(--head); font-size:14.5px; margin:0 0 12px 0; font-weight:600; display:flex; align-items:center; gap:8px;}
+  .panel h2 .tag{font-family:var(--mono); font-size:10px; color:var(--muted); font-weight:400; background:var(--panel-2); border:1px solid var(--border); padding:2px 6px; border-radius:20px;}
+
+  textarea{
+    width:100%; min-height:150px; background:#0A0A08; color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px; font-family:var(--mono); font-size:12px; resize:vertical; line-height:1.5;
+  }
+  textarea:focus, input:focus, select:focus{outline:1.5px solid var(--accent); outline-offset:0;}
+
+  .row-flex{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+  .btn{
+    all:unset; cursor:pointer; font-family:var(--sans); font-weight:600; font-size:12.5px;
+    padding:9px 15px; border-radius:8px; background:var(--panel-2); color:var(--text); border:1px solid var(--border);
+  }
+  .btn:hover{border-color:var(--accent);}
+  .btn.primary{background:var(--accent); color:#1a1200; border-color:var(--accent);}
+  .btn.primary:hover{background:#ffb84d;}
+  .btn.ghost{background:transparent;}
+  .btn.small{padding:6px 10px; font-size:11.5px;}
+  .btn.danger{color:var(--red);}
+
+  input[type="file"]{color:var(--muted); font-size:12px;}
+  input[type="text"], input[type="password"], input[type="number"], input[type="date"], select{
+    background:#0A0A08; color:var(--text); border:1px solid var(--border); border-radius:7px;
+    padding:7px 9px; font-family:var(--mono); font-size:12.5px;
+  }
+  label.field{display:flex; flex-direction:column; gap:5px; font-size:11.5px; color:var(--muted);}
+  label.field span{font-family:var(--sans); font-weight:500;}
+
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  th{
+    text-align:left; font-family:var(--sans); font-weight:600; font-size:10.5px; color:var(--muted);
+    padding:8px 9px; border-bottom:1px solid var(--border); white-space:nowrap; position:sticky; top:0; background:var(--panel);
+  }
+  td{padding:7px 9px; border-bottom:1px solid var(--border); font-family:var(--mono); white-space:nowrap; color:var(--text);}
+  tr:hover td{background:rgba(255,255,255,0.02);}
+  .table-scroll{overflow:auto; max-height:480px; border:1px solid var(--border); border-radius:10px;}
+  .table-scroll table{margin:0;}
+  .table-scroll th{top:0;}
+
+  td input, td select{width:100%; min-width:64px; background:transparent; border:1px solid transparent; border-radius:5px; padding:4px 5px; font-family:var(--mono); font-size:12px; color:var(--text);}
+  td input:hover, td select:hover{border-color:var(--border);}
+  td input:focus, td select:focus{border-color:var(--accent); background:#0A0A08;}
+
+  .pill{display:inline-block; padding:2px 8px; border-radius:20px; font-size:10.5px; font-family:var(--sans); font-weight:600;}
+  .pill.green{background:var(--green-bg); color:var(--green);}
+  .pill.muted{background:var(--panel-2); color:var(--muted);}
+
+  .rank1 td{background:var(--green-bg) !important;}
+  .rank1 td:first-child{box-shadow:inset 3px 0 0 var(--green);}
+
+  .chk-grid{display:flex; flex-wrap:wrap; gap:8px;}
+
+  /* ---------- MULTI-SELECT DROPDOWN (rule table: groups / dates) ---------- */
+  details.ms{position:relative;}
+  details.ms summary{
+    list-style:none; cursor:pointer; background:#0A0A08; border:1px solid var(--border); border-radius:7px;
+    padding:7px 10px; font-family:var(--mono); font-size:12px; color:var(--text); min-width:130px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  details.ms summary::-webkit-details-marker{display:none;}
+  details.ms summary::after{content:'▾'; color:var(--muted); font-size:10px; flex:0 0 auto;}
+  details.ms[open] summary{border-color:var(--accent);}
+  details.ms .ms-panel{
+    position:absolute; z-index:30; top:calc(100% + 4px); left:0; min-width:180px; max-height:220px; overflow-y:auto;
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:6px; box-shadow:0 12px 28px rgba(0,0,0,0.5);
+  }
+  details.ms .ms-panel label{
+    display:flex; align-items:center; gap:7px; padding:5px 7px; border-radius:5px; font-size:12px; cursor:pointer; white-space:nowrap;
+  }
+  details.ms .ms-panel label:hover{background:rgba(255,255,255,0.04);}
+  details.ms .ms-panel input{accent-color:var(--accent);}
+  details.ms .ms-panel .ms-divider{border-top:1px solid var(--border); margin:4px 0;}
+  .chk{display:flex; align-items:center; gap:6px; background:var(--panel-2); border:1px solid var(--border); padding:6px 10px; border-radius:7px; font-size:12px;}
+  .chk input{accent-color:var(--accent);}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:16px;}
+  @media (max-width:900px){.grid2,.grid3{grid-template-columns:1fr;}}
+
+  .radio-card{display:flex; gap:10px;}
+  .radio-opt{
+    flex:1; border:1px solid var(--border); background:var(--panel-2); border-radius:10px; padding:12px 14px; cursor:pointer;
+  }
+  .radio-opt.active{border-color:var(--accent); box-shadow:0 0 0 1px var(--accent);}
+  .radio-opt .t{font-weight:600; font-size:13px; margin-bottom:2px;}
+  .radio-opt .d{color:var(--muted); font-size:11.5px;}
+
+  .hint{font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.5;}
+  #exportDateChangeMsg.flash{color:var(--accent); font-weight:600; animation:exportFlash 2.5s ease-out;}
+  @keyframes exportFlash{ 0%{opacity:0;} 10%{opacity:1;} 80%{opacity:1;} 100%{opacity:0.55;} }
+  #exportBody tr.row-flash{animation:rowFlash 1.8s ease-out;}
+  @keyframes rowFlash{ 0%{background:var(--accent-bg);} 100%{background:transparent;} }
+  .empty{padding:30px; text-align:center; color:var(--muted); font-size:13px;}
+  .kv{display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed var(--border); font-size:12.5px;}
+  .kv b{font-family:var(--mono); font-weight:500;}
+  .foot-note{color:var(--muted); font-size:11px; margin-top:6px;}
+  .badge-count{font-family:var(--mono); background:var(--panel-2); border:1px solid var(--border); border-radius:20px; padding:1px 8px; font-size:11px; color:var(--muted);}
+
+  /* ---------- BROKER-STYLE GRID ---------- */
+  #brokerGridTable{border-collapse:collapse; font-family:var(--mono);}
+  #brokerGridTable th, #brokerGridTable td{border:1px solid var(--border); padding:4px 7px; text-align:right; white-space:nowrap;}
+  #brokerGridTable th{background:var(--panel-2); font-family:var(--sans); font-weight:600; color:var(--muted); text-align:center; font-size:10px;}
+  #brokerGridTable td.grid-group{position:sticky; left:0; background:var(--panel); text-align:left; font-weight:600; color:var(--text); z-index:2;}
+  #brokerGridTable th.grid-group-h{position:sticky; left:0; background:var(--panel-2); z-index:3; text-align:left;}
+  #brokerGridTable td.grid-rate-top{background:var(--green-bg); color:var(--green); font-weight:600;}
+  #brokerGridTable td.grid-rate-other{background:rgba(229,88,106,0.12); color:var(--red);}
+  #brokerGridTable td.grid-nodata{color:var(--muted);}
+  #brokerGridTable td.grid-nodata::after{content:'●'; color:var(--red); font-size:8px; margin-left:3px; vertical-align:middle;}
+  #brokerGridTable .block-alt{background:rgba(255,255,255,0.015);}
+  #brokerGridTable .grid-provider{display:block; font-family:var(--sans); font-size:9px; color:var(--muted); font-weight:400; text-align:right; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:90px; margin-left:auto;}
+
+  /* ---------- CHART HOVER TOOLTIP (Power-BI style) ---------- */
+  .chart-tooltip{
+    position:fixed; z-index:500; pointer-events:none; display:none;
+    background:var(--panel-2); border:1px solid var(--accent); border-radius:8px;
+    padding:8px 11px; font-family:var(--mono); font-size:11.5px; color:var(--text);
+    box-shadow:0 10px 26px rgba(0,0,0,0.55); max-width:240px;
+  }
+  .chart-tooltip .tt-title{font-family:var(--sans); font-weight:600; font-size:11px; color:var(--accent); margin-bottom:5px;}
+  .chart-tooltip .tt-row{display:flex; align-items:center; gap:6px; padding:1.5px 0; white-space:nowrap;}
+  .chart-tooltip .tt-swatch{width:8px; height:8px; border-radius:2px; flex:0 0 auto;}
+  .chart-tooltip .tt-name{color:var(--muted); flex:1;}
+  .chart-tooltip .tt-val{color:var(--text); font-weight:600;}
+  canvas{cursor:crosshair; display:block; width:100%; height:100%;}
+
+  /* ---------- LOGIN SCREEN ---------- */
+  #loginScreen{
+    position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(212,175,55,0.10), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(34,197,94,0.08), transparent 45%),
+      var(--bg);
+    padding:20px; overflow:hidden;
+  }
+  #loginScreen::before{
+    content:''; position:absolute; inset:-10%;
+    background-image:
+      linear-gradient(rgba(212,175,55,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(212,175,55,0.05) 1px, transparent 1px);
+    background-size:42px 42px;
+    animation:gridDrift 40s linear infinite;
+    -webkit-mask-image:radial-gradient(circle at 50% 45%, black 0%, transparent 68%);
+            mask-image:radial-gradient(circle at 50% 45%, black 0%, transparent 68%);
+  }
+  @keyframes gridDrift{ from{transform:translate(0,0);} to{transform:translate(42px,42px);} }
+  .login-particle{
+    position:absolute; border-radius:50%; background:var(--accent); pointer-events:none;
+    opacity:0; animation:particleFloat 7s ease-in-out infinite;
+    box-shadow:0 0 6px 1px rgba(212,175,55,0.7);
+  }
+  @keyframes particleFloat{
+    0%{ opacity:0; transform:translateY(14px) scale(0.6); }
+    12%{ opacity:0.65; }
+    50%{ opacity:0.85; transform:translateY(-70px) scale(1); }
+    88%{ opacity:0.3; }
+    100%{ opacity:0; transform:translateY(-140px) scale(0.5); }
+  }
+  .login-card{
+    display:flex; width:100%; max-width:840px; background:var(--panel); border:1px solid var(--border);
+    border-radius:18px; overflow:hidden; box-shadow:0 30px 80px rgba(0,0,0,0.45), 0 0 90px rgba(212,175,55,0.05);
+    animation:fadeUp .5s ease; position:relative; z-index:1;
+  }
+  .login-hero{
+    flex:0 0 46%; background:linear-gradient(160deg, #1C1810 0%, #0A0A08 100%);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; padding:34px 24px;
+    border-right:1px solid var(--border); position:relative; overflow:hidden;
+  }
+  .login-hero .scanline{
+    position:absolute; left:0; right:0; height:90px; pointer-events:none;
+    background:linear-gradient(180deg, transparent 0%, rgba(212,175,55,0.10) 50%, transparent 100%);
+    animation:scanSweep 5s ease-in-out infinite;
+  }
+  @keyframes scanSweep{ 0%{top:-90px;} 55%{top:100%;} 100%{top:100%;} }
+  .login-hero .ring{
+    position:absolute; width:340px; height:340px; border-radius:50%;
+    border:1px dashed rgba(212,175,55,0.18); animation:spin 30s linear infinite;
+  }
+  .login-hero .ring.r2{width:250px; height:250px; border-color:rgba(34,197,94,0.16); animation-duration:22s; animation-direction:reverse;}
+  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+  .login-hero svg{position:relative; z-index:1; filter:drop-shadow(0 0 16px rgba(212,175,55,0.22));}
+  .login-hero .hero-caption{margin-top:18px; text-align:center; color:var(--muted); font-size:12px; line-height:1.6; max-width:230px; position:relative; z-index:1;}
+  .login-form-side{flex:1; padding:40px 38px; display:flex; flex-direction:column; justify-content:center;}
+  .login-form-side .logo-word{font-family:var(--head); font-weight:700; font-size:24px; letter-spacing:0.2px; display:flex; align-items:baseline; gap:7px; flex-wrap:wrap;}
+  .login-form-side .logo-word .accentR{
+    background:linear-gradient(90deg, #B8901C, #F2D77E, #D4AF37, #B8901C);
+    background-size:300% 100%; -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:shimmer 4s linear infinite;
+  }
+  @keyframes shimmer{ 0%{background-position:0% 0;} 100%{background-position:300% 0;} }
+  .login-form-side .logo-word .accentAI{color:var(--text);}
+  .login-form-side .tagline{color:var(--muted); font-size:13px; margin:6px 0 26px 0; line-height:1.5;}
+  .login-form-side label.field{margin-bottom:14px;}
+  .login-form-side input[type="text"], .login-form-side input[type="password"]{
+    width:100%; padding:11px 12px; font-size:13px;
+  }
+  .login-form-side .btn.primary{width:100%; padding:12px; font-size:13.5px; margin-top:6px; position:relative; overflow:hidden;}
+  .login-hint{color:var(--muted); font-size:11px; margin-top:14px; text-align:center; line-height:1.5;}
+  #appShell{display:none;}
+
+  /* ---------- OPENING SPLASH ANIMATION ---------- */
+  #splashScreen{
+    position:fixed; inset:0; z-index:300; background:var(--bg); color:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    transition:opacity .6s ease, visibility .6s ease;
+  }
+  #splashScreen.hide{opacity:0; visibility:hidden; pointer-events:none;}
+  .splash-inner{text-align:center;}
+  .splash-ring{width:110px; height:110px; margin:0 auto 20px auto; transform:rotate(-90deg);}
+  .splash-ring .ring-track{fill:none; stroke:var(--border); stroke-width:2;}
+  .splash-ring .ring-draw{
+    fill:none; stroke:var(--accent); stroke-width:2.5; stroke-linecap:round;
+    stroke-dasharray:339.3; stroke-dashoffset:339.3;
+    animation:splashRing 1.3s cubic-bezier(.4,0,.2,1) forwards;
+  }
+  .splash-ring circle[fill="currentColor"]{opacity:0; animation:splashDot .3s ease forwards 1.2s;}
+  @keyframes splashRing{ to{ stroke-dashoffset:0; } }
+  @keyframes splashDot{ to{ opacity:1; } }
+  .splash-word{
+    font-family:var(--head); font-weight:700; font-size:30px; letter-spacing:0.3px;
+    opacity:0; transform:translateY(8px); animation:splashText .7s ease forwards 0.5s;
+  }
+  .splash-word span{color:var(--accent);}
+  .splash-sub{
+    color:var(--muted); font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-top:6px;
+    opacity:0; transform:translateY(8px); animation:splashText .7s ease forwards 0.85s;
+  }
+  @keyframes splashText{ to{opacity:1; transform:translateY(0);} }
+</style>
+</head>
+<body>
+
+<div id="chartTooltip" class="chart-tooltip"></div>
+
+<div id="splashScreen">
+  <div class="splash-inner">
+    <svg class="splash-ring" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="60" r="54" class="ring-track"/>
+      <circle cx="60" cy="60" r="54" class="ring-draw"/>
+      <circle cx="60" cy="60" r="4" fill="currentColor"/>
+    </svg>
+    <div class="splash-word">RJAI</div>
+    <div class="splash-sub">Pricing Engine</div>
+  </div>
+</div>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-hero">
+      <div class="ring"></div>
+      <div class="ring r2"></div>
+      <div class="scanline"></div>
+      <div class="login-particle" style="left:22%; bottom:15%; width:3px; height:3px; animation-delay:0s;"></div>
+      <div class="login-particle" style="left:38%; bottom:20%; width:2px; height:2px; animation-delay:1.2s;"></div>
+      <div class="login-particle" style="left:55%; bottom:10%; width:4px; height:4px; animation-delay:2.4s;"></div>
+      <div class="login-particle" style="left:68%; bottom:25%; width:2px; height:2px; animation-delay:3.6s;"></div>
+      <div class="login-particle" style="left:80%; bottom:18%; width:3px; height:3px; animation-delay:0.8s;"></div>
+      <div class="login-particle" style="left:30%; bottom:30%; width:2px; height:2px; animation-delay:4.5s;"></div>
+      <div class="login-particle" style="left:62%; bottom:12%; width:3px; height:3px; animation-delay:5.5s;"></div>
+      <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="90" cy="90" r="72" fill="url(#g1)" opacity="0.12"/>
+        <circle cx="90" cy="90" r="58" stroke="#D4AF37" stroke-width="1.4" opacity="0.5"/>
+        <g stroke="#A39A78" stroke-width="1" opacity="0.55">
+          <line x1="90" y1="34" x2="90" y2="46"/>
+          <line x1="90" y1="134" x2="90" y2="146"/>
+          <line x1="34" y1="90" x2="46" y2="90"/>
+          <line x1="134" y1="90" x2="146" y2="90"/>
+        </g>
+        <!-- gauge needle: current market position -->
+        <g transform="translate(90,90) rotate(-35)">
+          <line x1="0" y1="0" x2="0" y2="-46" stroke="#D4AF37" stroke-width="3" stroke-linecap="round"/>
+        </g>
+        <circle cx="90" cy="90" r="5" fill="#D4AF37"/>
+        <!-- orbiting rate nodes -->
+        <circle cx="90" cy="24" r="4.5" fill="#22C55E"/>
+        <circle cx="150" cy="90" r="3.5" fill="#A39A78"/>
+        <circle cx="90" cy="156" r="3.5" fill="#A39A78"/>
+        <circle cx="30" cy="90" r="3.5" fill="#A39A78"/>
+        <!-- car silhouette -->
+        <g transform="translate(56,100)" fill="#F2EEE0" opacity="0.9">
+          <path d="M2 20 C2 14 6 12 11 12 L15 5 C16.5 2.5 19 1 22 1 L44 1 C47 1 49.5 2.5 51 5 L55 12 C60 12 64 14 64 20 L64 27 C64 29 62.5 30.5 60.5 30.5 L58 30.5 C58 33.5 55.5 36 52.5 36 C49.5 36 47 33.5 47 30.5 L21 30.5 C21 33.5 18.5 36 15.5 36 C12.5 36 10 33.5 10 30.5 L7.5 30.5 C5.5 30.5 4 29 4 27 Z" />
+          <path d="M14 12 L19 6 C19.7 5.2 20.7 4.7 21.8 4.7 L43 4.7 C44.2 4.7 45.3 5.3 46 6.3 L50 12 Z" fill="#0A0A08"/>
+        </g>
+        <defs>
+          <radialGradient id="g1" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(90 90) rotate(90) scale(72)">
+            <stop stop-color="#D4AF37"/>
+            <stop offset="1" stop-color="#D4AF37" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+      </svg>
+      <div class="hero-caption">AI rate engine — reads live competitor prices and positions Wheego automatically.</div>
+    </div>
+    <div class="login-form-side">
+      <div class="logo-word"><span class="accentR">RJAI</span> <span class="accentAI">Pricing Engine</span></div>
+      <div class="tagline">Wheego's ACRISS pricing cockpit. Sign in to continue.</div>
+      <form id="loginForm">
+        <label class="field"><span>User ID</span><input type="text" id="loginUser" placeholder="e.g. romi" autocomplete="username" required></label>
+        <label class="field"><span>Password</span><input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" required></label>
+        <button type="submit" class="btn primary">Enter RJAI</button>
+      </form>
+      <div class="login-hint" id="loginMsg">This is a local, front-end-only sign-in — the ID/password live in this file's code, not on a server.</div>
+    </div>
+  </div>
+</div>
+
+<div id="appShell">
+<div class="shell">
+  <header class="topbar">
+    <div class="brand-row">
+      <div class="brand">
+        <svg class="logo-mini" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="15" cy="15" r="13" stroke="#D4AF37" stroke-width="1.5" opacity="0.6"/>
+          <circle cx="15" cy="15" r="2.5" fill="#D4AF37"/>
+          <line x1="15" y1="15" x2="15" y2="6" stroke="#D4AF37" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="24" cy="15" r="2" fill="#22C55E"/>
+        </svg>
+        <div>
+          <div class="mark">RJAI <span>Pricing Engine</span></div>
+          <div class="sub">Wheego · ACRISS competitor pricing</div>
+        </div>
+      </div>
+      <div class="status-row">
+        <span class="stat-pill">Rows <b id="statRows">0</b></span>
+        <span class="stat-pill">Dates <b id="statDates">0</b></span>
+        <span class="stat-pill">Providers <b id="statProviders">0</b></span>
+        <span class="stat-pill">Groups <b id="statGroups">0</b></span>
+        <span class="stat-pill">Office <b id="statOffice">—</b></span>
+        <div class="theme-switch" role="group" aria-label="Theme">
+          <button class="theme-btn active" data-theme-btn="dark" title="Dark theme">Dark</button>
+          <button class="theme-btn" data-theme-btn="light" title="Light theme">Light</button>
+        </div>
+        <button class="btn-logout" id="btnLogout">Sign out</button>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button data-tab="import" class="active"><span class="n">01</span> Import rates</button>
+      <button data-tab="floor"><span class="n">02</span> Floor rates</button>
+      <button data-tab="settings"><span class="n">03</span> Filters &amp; undercut</button>
+      <button data-tab="results"><span class="n">04</span> Results</button>
+      <button data-tab="analysis"><span class="n">05</span> Price analysis</button>
+      <button data-tab="export"><span class="n">06</span> Export</button>
+    </nav>
+  </header>
+
+  <main class="main">
+
+    <!-- TAB 1: IMPORT -->
+    <section class="tabpage" id="tab-import">
+      <div class="page-head">
+        <h1>1 · Import competitor rates</h1>
+        <p>Paste a Check24-style export (tab or comma separated) or upload a file. Required columns: Date, Day, Acriss, Provider, Price — the rest are kept for reference.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Paste data <span class="tag">TSV / CSV</span></h2>
+        <textarea id="pasteArea" placeholder="Paste your competitor export here, including the header row..."></textarea>
+        <div class="row-flex" style="margin-top:12px;">
+          <button class="btn primary" id="btnParsePaste">Load pasted data</button>
+          <label class="btn ghost" style="cursor:pointer;">Upload file
+            <input type="file" id="fileInput" accept=".csv,.tsv,.txt,.xlsx,.xls" style="display:none;">
+          </label>
+          <button class="btn ghost" id="btnRefreshImport">🔄 Refresh data</button>
+          <button class="btn ghost danger" id="btnClearImport">Clear all</button>
+        </div>
+        <label class="chk" style="cursor:pointer; margin-top:12px; display:inline-flex;">
+          <input type="checkbox" id="restrictAcriss" checked> Only keep the 38 listed ACRISS categories — ignore everything else in the import
+        </label>
+        <div class="row-flex" style="margin-top:12px;">
+          <label class="field"><span>Broker margin on competitor rates</span>
+            <input type="number" id="importBrokerMarginPct" value="0" step="0.1" min="0" style="width:90px;">
+          </label>
+          <span style="align-self:flex-end; padding-bottom:9px;">%</span>
+          <button class="btn small primary" id="btnSaveImportMargin" style="align-self:flex-end;">💾 Save broker margin</button>
+          <span class="hint" id="importMarginSaveMsg" style="margin:0; align-self:flex-end; padding-bottom:9px;"></span>
+        </div>
+        <div class="hint">Deducted from <b>every competitor's price</b> the moment it's loaded — before market min, top-3, charts, and every pricing rule ever see it. Use this when competitor rates in your import already include a broker/reseller markup you want stripped out first. Leave at 0% to import prices exactly as given. Changing this re-applies to whatever's already imported, no need to re-upload. Click "Save broker margin" to make this % load automatically next time you open this file.</div>
+        <div class="hint" id="importMsg"></div>
+      </div>
+
+      <div class="panel" id="newAcrissPanel" style="display:none; border-color:var(--accent);">
+        <h2 style="color:var(--accent);">New ACRISS categories found <span class="tag" id="newAcrissCount">0</span></h2>
+        <p class="hint" style="margin-top:0;">These codes showed up in this import but aren't in Wheego's 38 tracked categories — a competitor may be offering a car class you don't currently list. Mapping is entirely optional: leave any code as "Keep separate / exclude" and nothing changes. Once you pick a target, the adjustment field lets you shift that competitor's price up or down before it counts toward the merged category — choose a flat € amount or a % of its price (e.g. an electric variant usually costs more, so a small positive adjustment keeps the comparison fair) — leave it at 0 to merge with no adjustment. If "Only keep the 38 listed categories" is ticked above, unmapped codes are excluded from every calculation.</p>
+        <div class="chk-grid" id="newAcrissList"></div>
+        <div class="row-flex" style="margin-top:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <button class="btn small primary" id="btnSaveAcrissMap">💾 Save these mappings permanently</button>
+          <button class="btn small ghost danger" id="btnClearAcrissMap">Clear saved mappings</button>
+          <span class="hint" id="acrissMapSaveMsg" style="margin:0;"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Preview <span class="tag" id="previewCount">0 rows</span></h2>
+        <div class="row-flex" style="margin-bottom:12px;">
+          <label class="field"><span>Date</span><select id="prevFilterDate" style="width:150px;"><option value="">All dates</option></select></label>
+          <label class="field"><span>Group</span><select id="prevFilterGroup" style="width:110px;"><option value="">All groups</option></select></label>
+          <label class="field"><span>Day</span><select id="prevFilterDay" style="width:100px;"><option value="">All lengths</option></select></label>
+          <label class="field"><span>Provider</span><select id="prevFilterProvider" style="width:150px;"><option value="">All providers</option></select></label>
+          <button class="btn small ghost" id="btnClearPreviewFilter" style="align-self:flex-end;">Clear filters</button>
+        </div>
+        <div class="table-scroll" id="previewTable"><div class="empty">Nothing imported yet.</div></div>
+      </div>
+    </section>
+
+    <!-- TAB 2: FLOOR RATES -->
+    <section class="tabpage" id="tab-floor" style="display:none;">
+      <div class="page-head">
+        <h1>2 · Company floor / minimum rates</h1>
+        <p>Two editable base rates per ACRISS group — €/day for days 1–10, and €/day from day 11 onward. Every other column (1 Tag … 30 Tage) is the total price for that rental length, calculated automatically as days × the applicable daily rate. This is Wheego's price floor — the calculator never undercuts below it when "enforce floor" is on.</p>
+      </div>
+
+      <div class="panel">
+        <h2>Paste from Excel <span class="tag">bulk update</span></h2>
+        <p class="hint" style="margin-top:0;">Copy a block from Excel with ACRISS code in the first column and the two daily rates in the next two columns (extra columns are ignored, a header row is fine) and paste it below — every matching group updates at once.</p>
+        <textarea id="floorPasteArea" placeholder="MBMN	24,00	37,00&#10;MBAN	26,00	37,00&#10;ECMR	27,00	37,00 ..." style="min-height:100px;"></textarea>
+        <div class="row-flex" style="margin-top:10px;">
+          <button class="btn primary small" id="btnApplyFloorPaste">Apply pasted rates</button>
+          <span class="hint" id="floorPasteMsg" style="margin:0;"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="row-flex" style="margin-bottom:12px;">
+          <button class="btn small primary" id="btnSaveFloor">💾 Save floor rates</button>
+          <button class="btn small ghost" id="btnResetFloor">Reset to defaults</button>
+          <button class="btn small ghost" id="btnAddGroup">+ Add group</button>
+          <span class="hint" id="floorSaveMsg" style="margin:0;"></span>
+        </div>
+        <div class="row-flex" style="margin-bottom:4px;">
+          <span class="hint" style="margin:0;">Green columns are editable one-by-one below, or paste a block above · you can also paste a two-column block directly into the two rate cells · grey columns are calculated.</span>
+        </div>
+        <div class="row-flex" style="margin-bottom:14px; padding-top:12px; border-top:1px solid var(--border);">
+          <label class="field" style="flex-direction:row; align-items:center; gap:8px;">
+            <span>Adjust all floor rates by</span>
+            <input type="number" id="floorBulkPct" value="10" step="0.5" style="width:80px;">
+            <span>%</span>
+          </label>
+          <button class="btn small primary" id="btnFloorBulkIncrease">+ Increase all</button>
+          <button class="btn small ghost" id="btnFloorBulkDecrease">− Decrease all</button>
+          <span class="hint" id="floorBulkMsg" style="margin:0;">Applies to both base rates (1–10 T and ab 11 T) for every group at once.</span>
+        </div>
+        <div class="table-scroll" style="max-height:560px;">
+          <table id="floorTable">
+            <thead><tr>
+              <th>ACRISS</th><th>Floor €/Tag 1–10 T</th><th>Floor €/Tag ab 11 T</th>
+              <th>1 Tag</th><th>2 Tage</th><th>3 Tage</th><th>4 Tage</th><th>5 Tage</th><th>6 Tage</th><th>7 Tage</th>
+              <th>10 Tage</th><th>14 Tage</th><th>30 Tage</th><th></th>
+            </tr></thead>
+            <tbody id="floorBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SETTINGS -->
+    <section class="tabpage" id="tab-settings" style="display:none;">
+      <div class="page-head">
+        <h1>3 · Filters &amp; undercut strategy</h1>
+        <p>Choose which competitors count toward the market price, and how far below the cheapest remaining competitor your price should sit.</p>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h2>Exclude competitors <span class="tag" id="providerTag">0 found</span></h2>
+          <div class="chk-grid" id="providerChecks"><div class="empty">Import data to see providers.</div></div>
+        </div>
+
+        <div class="panel">
+          <h2>Undercut strategy</h2>
+          <div class="row-flex" style="margin-bottom:14px;">
+            <button class="btn small primary" id="btnSaveRules">💾 Save these pricing rules</button>
+            <button class="btn small ghost" id="btnResetRules">↺ Reset to default</button>
+            <span class="hint" id="rulesSaveMsg" style="margin:0;"></span>
+          </div>
+          <div class="radio-card">
+            <div class="radio-opt active" data-mode="fixed">
+              <div class="t">Fixed amount (€)</div>
+              <div class="d">Go a set number of euros below the cheapest remaining competitor.</div>
+            </div>
+            <div class="radio-opt" data-mode="percent">
+              <div class="t">Percentage (%)</div>
+              <div class="d">Go a percentage below the cheapest remaining competitor.</div>
+            </div>
+            <div class="radio-opt" data-mode="perday">
+              <div class="t">Per rental length (€)</div>
+              <div class="d">A different € discount for each rental length — e.g. 1 day −2 €, 2 days −4 €, and so on.</div>
+            </div>
+          </div>
+          <div class="row-flex" style="margin-top:14px;">
+            <label class="field" id="undercutValueField">
+              <span>Undercut value</span>
+              <input type="number" id="adjValue" value="2" step="0.1" style="width:120px;">
+            </label>
+            <label class="field">
+              <span>Enforce floor rate</span>
+              <select id="enforceFloor"><option value="1">Yes — never below floor</option><option value="0">No — ignore floor</option></select>
+            </label>
+          </div>
+          <div style="display:none; margin-top:14px;" id="perDayDiscountRow">
+            <div class="row-flex" style="margin-bottom:10px;">
+              <button class="btn small ghost" id="btnResetPerDayDiscount">Reset to 2 €/day</button>
+            </div>
+            <div class="table-scroll" style="overflow:visible;">
+              <table id="perDayDiscountTable">
+                <thead><tr>
+                  <th>1 day</th><th>2 days</th><th>3 days</th><th>4 days</th><th>5 days</th><th>6 days</th><th>7 days</th>
+                  <th>8-13 days</th><th>14-29 days</th><th>30+ days</th>
+                </tr></thead>
+                <tbody id="perDayDiscountBody"></tbody>
+              </table>
+            </div>
+            <div class="hint" style="margin-top:8px;">Each rental length gets its own € discount below the cheapest remaining competitor — edit any cell.</div>
+          </div>
+          <div class="hint">Wheego price = cheapest included competitor − undercut, then clamped to your floor rate (if enforced). If every included competitor already sits below your floor, Wheego can't reach position 1 without going under floor — those rows will show a rank worse than #1 even with the undercut applied.</div>
+          <div class="ms-divider" style="margin:14px 0;"></div>
+          <label class="chk" style="cursor:pointer;">
+            <input type="checkbox" id="keepIfTop"> Keep price as-is if Wheego is already #1 at minimum price
+          </label>
+          <div class="hint">When on: if Wheego's own listing in the import is already the single cheapest price for that category/day (before any undercut is applied), leave it exactly as imported instead of undercutting it further. Needs Wheego's own listing in the import.</div>
+          <div class="ms-divider" style="margin:14px 0;"></div>
+          <label class="chk" style="cursor:pointer;">
+            <input type="checkbox" id="ratingScale"> Scale price by rating difference vs the #1 competitor
+          </label>
+          <div class="row-flex" style="margin-top:8px;">
+            <label class="field"><span>Price change per 0.1★ difference</span>
+              <input type="number" id="ratingScalePct" value="4" step="0.01" style="width:90px;">
+            </label>
+            <span style="align-self:flex-end; padding-bottom:9px;">%</span>
+          </div>
+          <div class="hint">When on: this <b>combines with</b> your undercut/category rule above rather than replacing it. The #1 competitor's price is first adjusted up or down by the star-rating gap — for every 0.1★ Wheego is rated <b>higher</b>, the reference price goes <b>up</b> by this percentage; for every 0.1★ <b>lower</b>, it goes <b>down</b> by the same percentage (0.1★ → 4%, 0.2★ → 8%, 0.3★ → 12%, and so on up to a 10★ gap, by default) — and <b>then</b> your flat/percentage undercut (or a matching category rule) is applied on top of that adjusted price, e.g. "rating +0.3★ then −2 €". Floor rate still applies. "Keep if already #1" still wins outright if it applies. Needs a "Rating" column and Wheego's own listing in the import.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Category price rules <span class="tag">override the default undercut per ACRISS group, optionally per date</span></h2>
+        <p class="hint" style="margin-top:0;">Set a different rule for one or several groups at once, and one or several dates at once — e.g. MBMN + ECAR always 2 € cheaper than the cheapest competitor, PVMR always 10 € more expensive, or a group 5 € more expensive only on two specific dates. Click the Group/Date boxes to open a checklist. A rule scoped to specific dates wins over an "All dates" rule for the same group; groups with no rule keep using the default undercut above.</p>
+        <div class="table-scroll" style="overflow:visible; max-height:none;">
+          <table id="rulesTable">
+            <thead><tr><th>ACRISS group</th><th>Date</th><th>Rule</th><th>Value (€)</th><th></th></tr></thead>
+            <tbody id="rulesBody"></tbody>
+          </table>
+        </div>
+        <div class="row-flex" style="margin-top:12px;">
+          <button class="btn small ghost" id="btnAddRule">+ Add rule</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Export metadata <span class="tag">applies to all rows on export</span></h2>
+        <div class="grid3">
+          <label class="field"><span>Pick-up Office</span>
+            <select id="metaOffice">
+              <option value="51">Frankfurt Airport (FRA)</option>
+              <option value="53">Cologne Airport (CGN)</option>
+              <option value="54">Dusseldorf Airport (DUS)</option>
+              <option value="07">Hamburg Airport (HAM)</option>
+              <option value="__custom">Other — set Rate zone manually</option>
+            </select>
+          </label>
+          <label class="field"><span>Rate zone</span><input type="text" id="metaZone" value="51"></label>
+          <label class="field"><span>Miles / pd</span><input type="text" id="metaMiles" value=""></label>
+          <label class="field"><span>Mile rate</span><input type="text" id="metaMileRate" value=""></label>
+          <label class="field"><span>Priority <span class="tag">CSV only</span></span><input type="text" id="metaPriority" value=""></label>
+          <label class="field"><span>Company <span class="tag">CSV only</span></span><input type="text" id="metaCompany" value="0"></label>
+          <label class="field"><span>WG level <span class="tag">CSV only</span></span><input type="text" id="metaWg" value="WG1/WG2"></label>
+          <label class="field"><span>Additionals codes <span class="tag">CSV only</span></span><input type="text" id="metaAdditionals" value="4,101,192,193,194,195,196,197"></label>
+        </div>
+        <div class="hint">Pick-up Office fills in Rate zone automatically (Frankfurt→51, Cologne→53, Dusseldorf→54, Hamburg→07) — pick "Other" to type a different zone code by hand. Pickup start/end use each export row's own date automatically. Booking start/end are constant across every row — the earliest pickup date in the whole export batch — matching your real target files, where booking date is fixed at the day the rates were pulled and only pickup date moves. Rate zone/Miles/Mile rate feed the XLSX export (Wheelsys_Rate.xlsx format); Priority/Company/WG level/Additionals feed the CSV export (legacy 27-column format) only.</div>
+      </div>
+    </section>
+
+    <!-- TAB 4: RESULTS -->
+    <section class="tabpage" id="tab-results" style="display:none;">
+      <div class="page-head">
+        <h1>4 · Results</h1>
+        <p>One row per booking date · rental length · ACRISS group. Shows the 3 cheapest competitors after your exclusion filter, Wheego's calculated price, and Wheego's market position. Rows highlighted <span style="color:var(--green); font-weight:600;">green</span> mean Wheego is currently in position 1 — cheapest overall.</p>
+      </div>
+      <div class="panel">
+        <div class="row-flex" style="margin-bottom:12px;">
+          <button class="btn primary small" id="btnRecalc">Recalculate</button>
+          <label class="field" style="flex-direction:row; align-items:center; gap:8px;">
+            <span>Booking date</span>
+            <select id="resultsDateFilter" style="width:170px;"><option value="">All dates</option></select>
+          </label>
+          <label class="field" style="flex-direction:row; align-items:center; gap:8px;">
+            <span>ACRISS group</span>
+            <select id="resultsGroupFilter" style="width:120px;"><option value="">All groups</option></select>
+          </label>
+          <span class="badge-count" id="resultCount">0 combinations</span>
+        </div>
+        <div class="table-scroll" style="max-height:600px;">
+          <table id="resultsTable">
+            <thead><tr>
+              <th>Booking date</th><th>Days</th><th>Group</th><th>#Comp.</th>
+              <th>#1 cheapest</th><th>#2</th><th>#3</th>
+              <th>Market min</th><th>Wheego price</th><th>Rule</th><th>Floor</th><th>Position</th>
+            </tr></thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Broker-style grid <span class="tag">one row per group, one booking date, all rental lengths side by side</span></h2>
+        <div class="row-flex" style="margin-bottom:12px;">
+          <label class="field" style="flex-direction:row; align-items:center; gap:8px;">
+            <span>Date</span>
+            <select id="gridDateSelect" style="width:150px;"></select>
+          </label>
+          <label class="chk" style="cursor:pointer;">
+            <input type="checkbox" id="gridShowNames" checked> Show competitor names
+          </label>
+          <span class="hint" style="margin:0;">Green Rate = Wheego is #1 for that rental length · red dot = no competitor data for that length.</span>
+        </div>
+        <div class="table-scroll" style="max-height:640px;">
+          <table id="brokerGridTable" style="font-size:11px;"></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB: ANALYSIS -->
+    <section class="tabpage" id="tab-analysis" style="display:none;">
+      <div class="page-head">
+        <h1>5 · Competitor price analysis</h1>
+        <p>Charts built directly from your imported file. Excluded competitors (set in Filters &amp; undercut) are left out of every chart here too, so what you see matches what the calculator actually uses.</p>
+      </div>
+
+      <div class="panel">
+        <div class="row-flex">
+          <label class="field"><span>ACRISS group</span><select id="anaGroup" style="width:110px;"></select></label>
+          <label class="field"><span>Date</span><select id="anaDate" style="width:150px;"></select></label>
+          <label class="field"><span>Rental length (for date trend)</span><select id="anaDay" style="width:120px;"></select></label>
+          <span style="flex:1"></span>
+          <span class="hint" id="analysisMsg" style="margin:0;"></span>
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div class="panel">
+          <h2>Price by rental length <span class="tag">selected group + date</span></h2>
+          <div style="height:280px;"><canvas id="chartByLength"></canvas></div>
+        </div>
+        <div class="panel">
+          <h2>Competitors compared <span class="tag">avg price, cheapest on top</span></h2>
+          <div style="height:280px;"><canvas id="chartByProvider"></canvas></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Market trend across pickup dates <span class="tag">selected group + rental length</span></h2>
+        <div style="height:280px;"><canvas id="chartByDate"></canvas></div>
+        <div class="hint">Amber dot = Wheego not in position 1 on that date · green dot = Wheego was cheapest.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Each competitor's price over time <span class="tag">selected group + rental length, one line per competitor</span></h2>
+        <div style="height:300px;"><canvas id="chartByCompetitor"></canvas></div>
+        <div class="hint" id="competitorTrendNote">Showing up to 8 competitors with the most data points for this group/length. Wheego's price is included as a thicker line for reference.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Who wins position #1 most often <span class="tag">selected group, every date &amp; rental length in your import</span></h2>
+        <div style="height:280px;"><canvas id="chartWinRate"></canvas></div>
+        <div class="hint">Counts how many times each competitor had the single cheapest price for this group, across everything you've imported.</div>
+      </div>
+    </section>
+
+    <!-- TAB 5: EXPORT -->
+    <section class="tabpage" id="tab-export" style="display:none;">
+      <div class="page-head">
+        <h1>6 · Final export</h1>
+        <p><b>XLSX</b> matches your Wheelsys_Rate.xlsx template exactly — same 18 columns, same order (the table below). <b>CSV</b> matches your FRA_AP legacy 27-column format instead (Group, Rate Name, Rate code, Booking/Pickup dates, Priority, Company, the 10 rate columns, Weekend, Rate zone, Location flags, WG level, Additionals — with the same 4-row header). Both generate one row per ACRISS group <b>for every pickup date found in your import</b> (9 dates in, 9 rows per group out, etc). All rate columns are <b>per-day rates</b> (total price ÷ rental length), not totals — falling back to your floor table's daily rate when no competitor data exists for that length.</p>
+      </div>
+      <div class="panel">
+        <h2>Price source <span class="tag">what goes into every rate column below</span></h2>
+        <div class="radio-card">
+          <div class="radio-opt active" data-price-source="calculated">
+            <div class="t">Calculated (competitor-based)</div>
+            <div class="d">Wheego's undercut/rule price per group and date, falling back to the floor rate only where no competitor data exists for that length.</div>
+          </div>
+          <div class="radio-opt" data-price-source="floor">
+            <div class="t">Floor rates only</div>
+            <div class="d">Ignore competitor calculations entirely — export your floor-rate table's own per-day rates for every group and date, unchanged.</div>
+          </div>
+        </div>
+        <div class="row-flex" id="floorOnlyDateRow" style="margin-top:12px; display:none;">
+          <label class="field"><span>Date(s) — comma-separated, only used if nothing's been imported</span><input type="text" id="floorOnlyDates" placeholder="e.g. 2026-09-11, 2026-09-12" style="width:320px;"></label>
+        </div>
+        <div class="hint" id="priceSourceHint" style="margin-top:8px;">Using your imported competitor data's dates. Import a file first (tab 01) so the export has dates to generate rows for.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Per-date export settings <span class="tag">optional — overrides the price source above, per date</span></h2>
+        <p class="hint" style="margin-top:0;">Untick a date to leave it out of the export entirely, or pick a different source for just that date — e.g. export most dates as Calculated but force a couple of far-out dates to Floor rates only. Any date left on "Use price source above" just follows your choice above. Rebuilds automatically.</p>
+        <div class="table-scroll" style="overflow:visible;">
+          <table id="exportDateSettingsTable">
+            <thead><tr><th>Include</th><th>Date</th><th>Source for this date</th></tr></thead>
+            <tbody id="exportDateSettingsBody"><tr><td colspan="3" class="empty">Import data to see dates.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="hint" id="exportDateChangeMsg" style="margin-top:10px; min-height:16px;"></div>
+      </div>
+
+      <div class="panel">
+        <div class="row-flex" style="margin-bottom:12px;">
+          <button class="btn small ghost" id="btnBuildExport">Build export table</button>
+          <span class="badge-count" id="exportSummary">0 dates × 0 groups</span>
+          <span style="flex:1"></span>
+          <button class="btn small primary" id="btnExportCsv">Export CSV</button>
+          <button class="btn small primary" id="btnExportXlsx">Export XLSX</button>
+        </div>
+        <div class="table-scroll" style="max-height:560px;">
+          <table id="exportTable">
+            <thead><tr>
+              <th>Group</th><th>Miles / pd</th><th>Mile rate</th><th>Pickup start</th><th>Pickup end</th>
+              <th>Rate zone</th><th>Booking start</th><th>Booking end</th>
+              <th>1 per day</th><th>2 per day</th><th>3 per day</th><th>4 per day</th><th>5 per day</th><th>6 per day</th><th>7 per day</th>
+              <th>8-13 per day</th><th>14-29 per day</th><th>30+ per day</th>
+            </tr></thead>
+            <tbody id="exportBody"><tr><td colspan="18" class="empty">Click "Build export table" once you have results.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="foot-note">CSV is written semicolon-delimited with comma decimals (German Excel convention). XLSX cells are numeric, with real Excel dates for the four date columns — same as Wheelsys_Rate.xlsx.</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------
+   OPENING SPLASH ANIMATION
+--------------------------------------------------------------- */
+setTimeout(()=>{ document.getElementById('splashScreen').classList.add('hide'); }, 1700);
+
+/* ---------------------------------------------------------------
+   THEME SWITCHER — Dark / Light
+--------------------------------------------------------------- */
+// Mirrors the CSS variables per theme, for the hand-drawn <canvas> charts (which can't
+// read CSS custom properties directly the way the rest of the UI does).
+const CHART_THEME_COLORS = {
+  dark:  { text:'#F2EEE0', muted:'#A39A78', border:'#3D3418', mutedLine:'#5C5230', accent:'#D4AF37', green:'#22C55E', bg:'#0A0A08' },
+  light: { text:'#1B1A16', muted:'#77705E', border:'#DBD5C4', mutedLine:'#9E9781', accent:'#A9781A', green:'#158C4C', bg:'#F3F1EA' }
+};
+function getThemeColors(){
+  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+  return CHART_THEME_COLORS[theme] || CHART_THEME_COLORS.dark;
+}
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.themeBtn===theme);
+  });
+  // Redraw canvas charts so they pick up the new palette immediately.
+  if (document.getElementById('tab-analysis') && document.getElementById('tab-analysis').style.display !== 'none'){
+    renderAnalysisCharts();
+  }
+}
+document.querySelectorAll('.theme-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>applyTheme(btn.dataset.themeBtn));
+});
+
+/* ---------------------------------------------------------------
+   LOGIN GATE (front-end only demo — no real authentication)
+--------------------------------------------------------------- */
+document.getElementById('loginForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const VALID_USER = 'Rjethava';
+  const VALID_PASS = 'R_S_77790';
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  if (user !== VALID_USER || pass !== VALID_PASS){
+    document.getElementById('loginMsg').textContent = 'Incorrect ID or password.';
+    document.getElementById('loginMsg').style.color = 'var(--red)';
+    return;
+  }
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appShell').style.display = 'block';
+});
+document.getElementById('btnLogout').addEventListener('click', ()=>{
+  document.getElementById('appShell').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+});
+/* ---------------------------------------------------------------
+   MASTER DATA
+--------------------------------------------------------------- */
+const ACRISS_GROUPS = ["MBMN","MBAN","ECMR","ECAR","CCMR","CDMR","CDAR","CFMR","CFAR","CWMR","CWAR",
+"CPMR","CPAR","IDMR","IDAR","IFMR","IFAR","IWMR","IWAR","SFMR","SFAR","PFAR","CDAH","CFAH","CPAH",
+"IFAH","SFAH","PFAH","FDAR","PDAR","FWAR","PWAR","FFAR","SVMR","SVAR","FVAR","PVMR","PVAR"];
+
+// Floor rates: [ €/day for days 1-10, €/day from day 11 onward ].
+// Any day-length total = days * (day<=10 ? rate1_10 : rate11plus).
+const DEFAULT_FLOOR = {
+MBMN:[24.00,37.00], MBAN:[26.00,37.00], ECMR:[27.00,37.00], ECAR:[28.00,39.00],
+CCMR:[29.00,40.00], CDMR:[30.00,41.00], CDAR:[31.00,42.00], CDAH:[32.00,44.00],
+CFMR:[32.00,44.00], CFAR:[32.00,44.00], CFAH:[32.00,44.00], CPMR:[32.00,44.00],
+CPAR:[32.00,44.00], CPAH:[32.00,44.00], CWMR:[32.00,44.00], CWAR:[32.00,44.00],
+IDMR:[32.00,44.00], IDAR:[32.00,44.00], IFMR:[32.00,44.00], IFAR:[32.00,44.00],
+IFAH:[32.00,44.00], IWMR:[32.00,44.00], IWAR:[32.00,44.00], SVMR:[38.00,52.00],
+SVAR:[38.00,52.00], SFMR:[32.00,44.00], SFAR:[32.00,44.00], SFAH:[35.00,48.00],
+FDAR:[38.00,52.00], FWAR:[38.00,52.00], FFAR:[38.00,52.00], FVAR:[49.00,67.00],
+PDAR:[49.00,67.00], PFAR:[49.00,67.00], PWAR:[49.00,67.00], PFAH:[49.00,67.00],
+PVMR:[54.00,74.00], PVAR:[61.00,83.00]
+};
+// Total price for a given ACRISS group and rental length, from the floor table.
+function floorTotal(group, days){
+  const rec = state.floor[group];
+  if (!rec) return NaN;
+  const r1 = rec[0], r2 = rec[1];
+  if (r1==='' || r1===undefined || isNaN(r1)) return NaN;
+  const rate = (days<=10) ? r1 : (r2!=='' && r2!==undefined && !isNaN(r2) ? r2 : r1);
+  return Math.round(days*rate*100)/100;
+}
+
+/* ---------------------------------------------------------------
+   STATE
+--------------------------------------------------------------- */
+const state = {
+  rows: [],              // parsed competitor rows
+  floor: {},             // group -> [desc,d1..d7]
+  excluded: new Set(),
+  adjMode: 'fixed',
+  perDayDiscount: {1:2,2:4,3:6,4:8,5:10,6:12,7:14,'8-13':20,'14-29':28,'30+':60},
+  adjValue: 2,
+  enforceFloor: true,
+  results: [],           // computed rows
+  exportRows: [],
+  exportPriceSource: 'calculated', // 'calculated' | 'floor'
+  exportDateSettings: {},          // date -> {include:bool, source:'default'|'calculated'|'floor'}
+  acrissMap: {},          // unrecognised code -> Wheego category it should be merged into
+  rawImportRows: [],      // normalized rows before ACRISS mapping/restriction/dedupe, kept so mapping changes can reprocess without re-importing
+  rawImportLabel: '',
+  rawImportExtraNote: '',
+  priceRules: [],          // [{id, acrissList:[...], dateList:[] ('[]' = all dates), mode('cheaper'|'expensive'), value}]
+  keepIfTop: false,
+  ratingScale: false,
+  ratingScalePct: 4,
+  importBrokerMarginPct: 0    // % deducted from every competitor's price right when it's imported
+};
+
+ACRISS_GROUPS.forEach(g=>{
+  state.floor[g] = DEFAULT_FLOOR[g] ? DEFAULT_FLOOR[g].slice() : ["",""];
+});
+
+/* ---------------------------------------------------------------
+   UTIL
+--------------------------------------------------------------- */
+function toNum(v){
+  if (v===undefined||v===null) return NaN;
+  let s = String(v).trim();
+  if (s==='') return NaN;
+  s = s.replace(/[€\s]/g,'');
+  // handle "1.234,56" and "1234,56" and "1234.56"
+  if (s.indexOf(',')>-1 && s.indexOf('.')>-1){
+    s = s.replace(/\./g,'').replace(',','.');
+  } else if (s.indexOf(',')>-1){
+    s = s.replace(',','.');
+  }
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+function fmt(n){
+  if (n===undefined||n===null||isNaN(n)) return '';
+  return n.toFixed(2).replace('.',',');
+}
+function csvNum(n){
+  // Natural precision, no forced padding — matches the real target files exactly
+  // (e.g. "40" not "40,00", "25,5" not "25,50").
+  if (n===undefined||n===null||isNaN(n)||n==='') return '';
+  const rounded = Math.round((Number(n)+Number.EPSILON)*100)/100;
+  return rounded.toString().replace('.',',');
+}
+function detectDelimiter(line){
+  const counts = {'\t':(line.match(/\t/g)||[]).length, ';':(line.match(/;/g)||[]).length, ',':(line.match(/,/g)||[]).length};
+  return Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+}
+function parseTable(text){
+  const lines = text.split(/\r\n|\n|\r/).filter(l=>l.trim().length>0);
+  if (!lines.length) return [];
+  const delim = detectDelimiter(lines[0]);
+  const header = lines[0].split(delim).map(h=>h.trim().toLowerCase());
+  const out = [];
+  for (let i=1;i<lines.length;i++){
+    const cells = lines[i].split(delim);
+    const rec = {};
+    header.forEach((h,idx)=>{ rec[h] = (cells[idx]!==undefined) ? cells[idx].trim() : ''; });
+    out.push(rec);
+  }
+  return out;
+}
+function normalizeRows(rawRows){
+  const norm = [];
+  rawRows.forEach(r=>{
+    const get = (keys)=>{ for (const k of keys){ if (r[k]!==undefined && r[k]!=='') return r[k]; } return ''; };
+    const acriss = get(['acriss']).toUpperCase();
+    const provider = get(['provider','web supplier']);
+    const priceRaw = get(['price','daily price']);
+    const day = parseInt(get(['day']),10) || 1;
+    const date = get(['date']);
+    if (!acriss || !provider || priceRaw==='') return;
+    norm.push({
+      date: date || '(no date)',
+      day: day,
+      acriss: acriss,
+      car: get(['car']),
+      category: get(['category']),
+      provider: provider,
+      price: toNum(priceRaw),
+      position: get(['position']),
+      pickupTerminal: get(['pickup in terminal']),
+      transmission: get(['transmission']),
+      rating: toNum(get(['rating']))
+    });
+  });
+  return norm.filter(r=>!isNaN(r.price));
+}
+// When the same company lists the same car/ACRISS/date/rental-length/pickup-in-terminal/transmission
+// combination more than once (e.g. with different insurance add-ons), keep only the cheapest one —
+// otherwise one company could occupy 2 of the "top 3 cheapest" slots for what is really one offer.
+function dedupeCheapest(rows){
+  const best = new Map();
+  rows.forEach(r=>{
+    const key = [r.provider, r.acriss, r.car, r.date, r.day, r.pickupTerminal, r.transmission].join('|');
+    const existing = best.get(key);
+    if (!existing || r.price < existing.price) best.set(key, r);
+  });
+  return [...best.values()];
+}
+// ACRISS codes encode transmission in the 3rd character (M = Manual, A = Automatic).
+// A row whose actual Transmission column disagrees with what its own ACRISS code says is
+// a data error — it should NOT be treated as belonging to that category.
+function expectedTransmissionFor(acriss){
+  if (!acriss || acriss.length < 3) return null;
+  const t = acriss[2].toUpperCase();
+  if (t==='M') return 'Manual';
+  if (t==='A') return 'Automatic';
+  return null; // other 3rd letters (4WD/AWD variants etc.) aren't in the tracked list — skip the check
+}
+function filterTransmissionMismatches(rows){
+  const kept = [];
+  let mismatched = 0;
+  rows.forEach(r=>{
+    const expected = expectedTransmissionFor(r.acriss);
+    if (!expected || !r.transmission){ kept.push(r); return; } // nothing to check against
+    if (r.transmission.trim().toLowerCase() === expected.toLowerCase()){ kept.push(r); }
+    else { mismatched++; }
+  });
+  return {kept, mismatched};
+}
+// Explains exactly why a paste/upload produced 0 rows, instead of failing silently.
+function diagnoseRaw(raw){
+  if (!raw.length) return 'No rows at all were detected — check the text has a header row followed by data rows.';
+  const headerCols = Object.keys(raw[0]).filter(h=>h);
+  const has = (names)=> names.some(n=>headerCols.includes(n));
+  const missing = [];
+  if (!has(['acriss'])) missing.push('Acriss');
+  if (!has(['provider','web supplier'])) missing.push('Provider (or Web Supplier)');
+  if (!has(['price','daily price'])) missing.push('Price (or Daily Price)');
+  if (!missing.length){
+    return `Columns look right (found: ${headerCols.join(', ')}), but every row had a blank Acriss, Provider or Price value.`;
+  }
+  return `Detected columns: ${headerCols.join(', ') || '(none)'}. Missing required column(s): ${missing.join(', ')}.`;
+}
+
+/* ---------------------------------------------------------------
+   TAB NAV
+--------------------------------------------------------------- */
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tabpage').forEach(p=>p.style.display='none');
+    document.getElementById('tab-'+btn.dataset.tab).style.display='block';
+    if (btn.dataset.tab==='results') renderResults();
+    if (btn.dataset.tab==='settings') renderProviders();
+    if (btn.dataset.tab==='analysis'){ populateAnalysisControls(); renderAnalysisCharts(); }
+    if (btn.dataset.tab==='export') renderExportDateSettings();
+  });
+});
+
+/* ---------------------------------------------------------------
+   IMPORT TAB
+--------------------------------------------------------------- */
+// ACRISS mappings are saved (only when the user explicitly asks) to this browser's local
+// storage, so the same merges auto-apply next time this file is opened — best-effort only;
+// if storage isn't available for any reason, mapping still works for the current session,
+// it just won't be remembered afterwards.
+function loadSavedAcrissMap(){
+  try{
+    const raw = localStorage.getItem('rjai_acrissMap');
+    if (raw) state.acrissMap = JSON.parse(raw) || {};
+  } catch(e){ /* storage unavailable — carry on without saved mappings */ }
+}
+loadSavedAcrissMap();
+
+// Same idea for the import-time broker margin — saved only when explicitly asked, applied
+// automatically on load if present.
+function loadSavedImportMargin(){
+  try{
+    const raw = localStorage.getItem('rjai_importBrokerMarginPct');
+    if (raw !== null){
+      state.importBrokerMarginPct = parseFloat(raw) || 0;
+      document.getElementById('importBrokerMarginPct').value = state.importBrokerMarginPct;
+    }
+  } catch(e){ /* storage unavailable — carry on with the default 0% */ }
+}
+loadSavedImportMargin();
+document.getElementById('btnSaveImportMargin').addEventListener('click', ()=>{
+  const msg = document.getElementById('importMarginSaveMsg');
+  const pct = parseFloat(document.getElementById('importBrokerMarginPct').value) || 0;
+  try{
+    localStorage.setItem('rjai_importBrokerMarginPct', String(pct));
+    msg.textContent = `Saved (${pct}%) — loads automatically next time you open this file in this browser.`;
+  } catch(e){
+    msg.textContent = 'Could not save — this browser has local storage disabled for this file.';
+  }
+});
+
+// A mapping entry is {target, adjust} — target = Wheego group to merge into ('' = not mapped),
+// adjust = € added to (or subtracted from) the competitor's price before it counts toward that
+// group, since a merged category (e.g. an electric variant) isn't always an exact price match.
+// Older saved mappings were a plain string (just the target, no adjustment) — read those too.
+function acrissMapEntry(code){
+  const v = state.acrissMap[code];
+  if (!v) return {target:'', adjust:0, adjustType:'amount'};
+  if (typeof v === 'string') return {target:v, adjust:0, adjustType:'amount'};
+  return {target: v.target||'', adjust: v.adjust||0, adjustType: v.adjustType==='percent' ? 'percent' : 'amount'};
+}
+function renderNewAcrissPanel(codes){
+  const panel = document.getElementById('newAcrissPanel');
+  if (!codes.length){ panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+  document.getElementById('newAcrissCount').textContent = codes.length;
+  document.getElementById('newAcrissList').innerHTML = codes.map(c=>{
+    const m = acrissMapEntry(c);
+    return `<div class="chk" style="cursor:default; gap:8px;">
+      <span style="font-weight:600;">${c}</span>
+      <span style="color:var(--muted);">→</span>
+      <select data-newcode="${c}" style="min-width:150px;">
+        <option value="">Keep separate / exclude</option>
+        ${ACRISS_GROUPS.map(g=>`<option value="${g}" ${m.target===g?'selected':''}>Merge into ${g}</option>`).join('')}
+      </select>
+      <span style="color:var(--muted); font-size:11px;">price</span>
+      <input type="number" data-newcode-adjust="${c}" value="${m.adjust}" step="0.5" title="Added to (positive) or subtracted from (negative) this competitor's price once merged" style="width:64px;">
+      <select data-newcode-adjusttype="${c}" style="width:56px; padding:7px 4px;">
+        <option value="amount" ${m.adjustType==='amount'?'selected':''}>€</option>
+        <option value="percent" ${m.adjustType==='percent'?'selected':''}>%</option>
+      </select>
+    </div>`;
+  }).join('');
+  document.getElementById('newAcrissList').querySelectorAll('select[data-newcode]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const code = sel.dataset.newcode;
+      const current = acrissMapEntry(code);
+      if (sel.value) state.acrissMap[code] = {target: sel.value, adjust: current.adjust, adjustType: current.adjustType};
+      else delete state.acrissMap[code];
+      reprocessImport();
+    });
+  });
+  document.getElementById('newAcrissList').querySelectorAll('input[data-newcode-adjust]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const code = inp.dataset.newcodeAdjust;
+      const current = acrissMapEntry(code);
+      const adjust = inp.value==='' ? 0 : parseFloat(inp.value);
+      if (current.target) state.acrissMap[code] = {target: current.target, adjust, adjustType: current.adjustType};
+      reprocessImport();
+    });
+  });
+  document.getElementById('newAcrissList').querySelectorAll('select[data-newcode-adjusttype]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const code = sel.dataset.newcodeAdjusttype;
+      const current = acrissMapEntry(code);
+      if (current.target) state.acrissMap[code] = {target: current.target, adjust: current.adjust, adjustType: sel.value};
+      reprocessImport();
+    });
+  });
+}
+
+function finishIngest(norm, label, raw, extraNote){
+  if (!norm.length){
+    document.getElementById('importMsg').textContent = 'No usable rows loaded from ' + label + '. ' + diagnoseRaw(raw||[]);
+    return;
+  }
+  state.rawImportRows = norm;
+  state.rawImportLabel = label;
+  state.rawImportExtraNote = extraNote || '';
+  reprocessImport();
+}
+// Re-runs the whole import pipeline (ACRISS mapping -> restriction -> transmission check ->
+// dedupe -> Wheego self-exclusion) from the last raw parsed import. Called on first import, and
+// again whenever a new-ACRISS mapping or the restriction checkbox changes, so those take effect
+// without needing to re-paste or re-upload the file.
+function reprocessImport(){
+  const rawRows = state.rawImportRows;
+  if (!rawRows.length){ renderNewAcrissPanel([]); return; }
+  const label = state.rawImportLabel, extraNote = state.rawImportExtraNote;
+
+  // Flag any ACRISS code in this import that isn't one of Wheego's 38 tracked categories —
+  // always shown (with a merge option) regardless of whether those rows get filtered out below.
+  const allowedSet = new Set(ACRISS_GROUPS);
+  const newAcrissCodesRaw = [...new Set(rawRows.map(r=>r.acriss))].filter(c=>!allowedSet.has(c)).sort();
+  renderNewAcrissPanel(newAcrissCodesRaw);
+
+  // Apply any user-chosen merges: an unrecognised code's rows count toward the mapped
+  // Wheego category from here on (with the optional €/% price adjustment applied), instead of
+  // being excluded.
+  let norm = rawRows.map(r=>{
+    const m = acrissMapEntry(r.acriss);
+    if (!m.target) return r;
+    const adjustedPrice = m.adjustType==='percent' ? r.price * (1 + m.adjust/100) : r.price + m.adjust;
+    return {...r, acriss: m.target, price: Math.round(adjustedPrice*100)/100};
+  });
+
+  // Broker margin on import: deducted from every COMPETITOR price (never Wheego's own listing)
+  // right here, before anything downstream — market min, top-3, charts, every pricing rule —
+  // ever sees the raw price.
+  const importMarginPct = parseFloat(document.getElementById('importBrokerMarginPct').value) || 0;
+  if (importMarginPct > 0){
+    norm = norm.map(r=>{
+      if (r.provider.toLowerCase()==='wheego') return r;
+      return {...r, price: Math.round(r.price * (1 - importMarginPct/100) * 100)/100};
+    });
+  }
+
+  // Optionally drop any row whose ACRISS code (after mapping) still isn't one of the 38 tracked categories.
+  let acrissNote = '';
+  if (document.getElementById('restrictAcriss').checked){
+    const beforeCount = norm.length;
+    norm = norm.filter(r=>allowedSet.has(r.acriss));
+    const removedCount = beforeCount - norm.length;
+    const stillUnmapped = newAcrissCodesRaw.filter(c=>!acrissMapEntry(c).target);
+    if (removedCount){
+      acrissNote = ` Dropped ${removedCount} row(s) outside the 38 tracked ACRISS categories (codes seen: ${stillUnmapped.join(', ')}) — merge them above or untick the checkbox to keep them.`;
+    }
+    if (!norm.length){
+      document.getElementById('importMsg').textContent = `All rows were outside the 38 tracked ACRISS categories (codes seen: ${stillUnmapped.join(', ')}). Merge them above, or untick the restriction checkbox if you need them kept separate.`;
+      return;
+    }
+  }
+  // A row's actual Transmission must agree with what its own ACRISS code implies (3rd letter:
+  // M=Manual, A=Automatic) — e.g. an automatic car should never be counted as a manual-code group.
+  const transCheck = filterTransmissionMismatches(norm);
+  norm = transCheck.kept;
+  const transNote = transCheck.mismatched
+    ? ` Excluded ${transCheck.mismatched} row(s) where the Transmission column didn't match what the ACRISS code implies (e.g. an automatic car under a manual-transmission code) — not counted toward that category.`
+    : '';
+  if (!norm.length){
+    document.getElementById('importMsg').textContent = `Every remaining row had a transmission mismatch with its ACRISS code.` + transNote;
+    return;
+  }
+  // Same company can list the same car/ACRISS/date/length/pickup-in-terminal/transmission more
+  // than once (e.g. different insurance add-ons) — keep only the cheapest of each such duplicate.
+  const beforeDedupe = norm.length;
+  norm = dedupeCheapest(norm);
+  const dupNote = (beforeDedupe - norm.length)
+    ? ` Collapsed ${beforeDedupe - norm.length} duplicate listing(s) (same company/car/ACRISS/date/length/pickup-in-terminal/transmission) down to the cheapest.`
+    : '';
+  state.rows = norm;
+  // Wheego's own listings sometimes appear as a "provider" in scraped competitor
+  // data (its own live prices on Check24 etc). Auto-exclude those so Wheego is
+  // never compared against itself in the calculation.
+  const selfProviders = [...new Set(norm.map(r=>r.provider))].filter(p=>p.toLowerCase()==='wheego');
+  let selfNote = '';
+  if (selfProviders.length){
+    selfProviders.forEach(p=>state.excluded.add(p));
+    selfNote = ` Auto-excluded Wheego's own listing ("${selfProviders.join('", "')}") from competitor calculations — untick it in Filters & undercut if you want it counted.`;
+  }
+  const dates = [...new Set(norm.map(r=>r.date))].sort();
+  const days = [...new Set(norm.map(r=>r.day))].sort((a,b)=>a-b);
+  const dateSummary = dates.length<=6 ? dates.join(', ') : `${dates[0]} … ${dates[dates.length-1]}`;
+  document.getElementById('importMsg').textContent =
+    `Loaded ${norm.length} rows from ${label}. Detected ${dates.length} date(s) [${dateSummary}] and day-length(s): ${days.join(', ')}.` + acrissNote + transNote + dupNote + selfNote + extraNote;
+  renderPreview();
+  updateStatus();
+  renderProviders();
+  renderPriceRules();
+  buildResults();
+}
+function ingest(text, label){
+  try{
+    const raw = parseTable(text);
+    finishIngest(normalizeRows(raw), label, raw);
+  } catch(err){
+    document.getElementById('importMsg').textContent = 'Error while parsing: ' + err.message;
+    console.error(err);
+  }
+}
+function ingestRawRows(rawRows, label, extraNote){
+  try{
+    finishIngest(normalizeRows(rawRows), label, rawRows, extraNote);
+  } catch(err){
+    document.getElementById('importMsg').textContent = 'Error while parsing: ' + err.message;
+    console.error(err);
+  }
+}
+// Find, in an array-of-arrays sheet, the row that looks like the real header
+// (contains both a Date-like and an Acriss-like column), then zip it with
+// every row beneath it into lowercase-keyed record objects.
+function sheetToRecords(aoa){
+  let headerIdx = -1;
+  for (let i=0;i<Math.min(aoa.length,25);i++){
+    const row = (aoa[i]||[]).map(c=>String(c||'').trim().toLowerCase());
+    if (row.includes('date') && row.includes('acriss')) { headerIdx = i; break; }
+  }
+  if (headerIdx===-1) return [];
+  const header = aoa[headerIdx].map(c=>String(c||'').trim().toLowerCase());
+  const out = [];
+  for (let i=headerIdx+1;i<aoa.length;i++){
+    const cells = aoa[i];
+    if (!cells || cells.every(c=>c===undefined||c===null||c==='')) continue;
+    const rec = {};
+    header.forEach((h,idx)=>{
+      if (!h) return;
+      let v = cells[idx];
+      rec[h] = (v===undefined||v===null) ? '' : v;
+    });
+    out.push(rec);
+  }
+  return out;
+}
+// Looks for a "Pick-up Office:" label anywhere in the workbook (e.g. a Scope/summary sheet)
+// and reads the office name from the next non-empty cell in that row.
+function findPickupOfficeInWorkbook(wb){
+  for (const name of wb.SheetNames){
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:''});
+    for (const row of aoa){
+      for (let i=0;i<row.length;i++){
+        const cell = String(row[i]||'').trim().toLowerCase();
+        if (cell === 'pick-up office:' || cell === 'pickup office:' || cell === 'pick up office:'){
+          for (let j=i+1;j<row.length;j++){
+            const val = String(row[j]||'').trim();
+            if (val) return val;
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+// Maps an office name/city to the Rate zone code — matches by city name so small wording
+// differences ("Airport" vs "Flughafen", extra spaces, etc.) still work.
+function officeNameToZone(name){
+  const n = (name||'').toLowerCase();
+  if (n.includes('frankfurt') || /\bfra\b/.test(n)) return '51';
+  if (n.includes('cologne') || n.includes('köln') || n.includes('koeln') || /\bcgn\b/.test(n)) return '53';
+  if (n.includes('düsseldorf') || n.includes('duesseldorf') || n.includes('dusseldorf') || /\bdus\b/.test(n)) return '54';
+  if (n.includes('hamburg') || /\bham\b/.test(n)) return '07';
+  return null;
+}
+function applyDetectedOffice(officeName){
+  const zone = officeNameToZone(officeName);
+  if (!zone) return null;
+  const officeSel = document.getElementById('metaOffice');
+  const hasOption = [...officeSel.options].some(o=>o.value===zone);
+  if (hasOption) officeSel.value = zone;
+  document.getElementById('metaZone').value = zone;
+  updateOfficeStatusPill();
+  return zone;
+}
+// Reflects the current Pick-up Office selection in the header status pill.
+function updateOfficeStatusPill(){
+  const sel = document.getElementById('metaOffice');
+  const pill = document.getElementById('statOffice');
+  if (!sel || !pill) return;
+  const opt = sel.options[sel.selectedIndex];
+  pill.textContent = (opt && sel.value !== '__custom') ? opt.textContent : '—';
+}
+
+function parseXlsxFile(file){
+  document.getElementById('importMsg').textContent = 'Reading workbook…';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      let best = null, bestLen = 0, bestName = '';
+      wb.SheetNames.forEach(name=>{
+        const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:true, defval:''});
+        const recs = sheetToRecords(aoa);
+        if (recs.length > bestLen){ best = recs; bestLen = recs.length; bestName = name; }
+      });
+      if (!best || !best.length){
+        document.getElementById('importMsg').textContent = 'No sheet with Date/Acriss columns found in this workbook.';
+        return;
+      }
+      const officeName = findPickupOfficeInWorkbook(wb);
+      let officeNote = '';
+      if (officeName){
+        const zone = applyDetectedOffice(officeName);
+        officeNote = zone
+          ? ` Detected Pick-up Office "${officeName}" → Rate zone ${zone} applied automatically.`
+          : ` Detected Pick-up Office "${officeName}" but it isn't one of the mapped airports — set Rate zone manually in Filters & undercut.`;
+      }
+      ingestRawRows(best, `${file.name} (sheet "${bestName}")`, officeNote);
+    } catch(err){
+      document.getElementById('importMsg').textContent = 'Could not read this workbook: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('btnParsePaste').addEventListener('click', ()=>{
+  const t = document.getElementById('pasteArea').value;
+  if (!t.trim()){ document.getElementById('importMsg').textContent='Paste some data first.'; return; }
+  ingest(t, 'pasted text');
+});
+document.getElementById('btnRefreshImport').addEventListener('click', ()=>{
+  if (!state.rawImportRows.length){
+    document.getElementById('importMsg').textContent = 'Nothing imported yet — nothing to refresh.';
+    return;
+  }
+  reprocessImport();
+  document.getElementById('importMsg').textContent =
+    `Refreshed — reran ACRISS mapping, restriction, broker margin, transmission check, and dedupe on the ${state.rawImportRows.length} originally imported row(s), giving ${state.rows.length} usable rows. Recalculated everything downstream.`;
+});
+document.getElementById('btnClearImport').addEventListener('click', ()=>{
+  state.rows = []; state.rawImportRows = []; document.getElementById('pasteArea').value='';
+  document.getElementById('importMsg').textContent='Cleared.';
+  renderNewAcrissPanel([]);
+  renderPreview(); updateStatus(); renderProviders(); buildResults();
+});
+document.getElementById('fileInput').addEventListener('change', (e)=>{
+  const f = e.target.files[0]; if (!f) return;
+  const isExcel = /\.(xlsx|xls)$/i.test(f.name);
+  if (isExcel){
+    if (typeof XLSX === 'undefined'){
+      document.getElementById('importMsg').textContent = 'XLSX library unavailable (no internet). Please export/paste as CSV instead.';
+      return;
+    }
+    document.getElementById('pasteArea').value = '';
+    document.getElementById('pasteArea').placeholder = `Excel file "${f.name}" loaded directly — see the preview below. (This box is only for pasted text; you don't need to use it after an Upload.)`;
+    parseXlsxFile(f);
+  } else {
+    const reader = new FileReader();
+    reader.onload = () => { document.getElementById('pasteArea').value = reader.result; ingest(reader.result, f.name); };
+    reader.readAsText(f);
+  }
+});
+
+function populatePreviewFilters(){
+  const keep = {
+    date: document.getElementById('prevFilterDate').value,
+    group: document.getElementById('prevFilterGroup').value,
+    day: document.getElementById('prevFilterDay').value,
+    provider: document.getElementById('prevFilterProvider').value
+  };
+  const dates = [...new Set(state.rows.map(r=>r.date))].sort();
+  const groups = [...new Set(state.rows.map(r=>r.acriss))].sort();
+  const days = [...new Set(state.rows.map(r=>r.day))].sort((a,b)=>a-b);
+  const providers = [...new Set(state.rows.map(r=>r.provider))].sort();
+
+  document.getElementById('prevFilterDate').innerHTML = '<option value="">All dates</option>' + dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  document.getElementById('prevFilterGroup').innerHTML = '<option value="">All groups</option>' + groups.map(g=>`<option value="${g}">${g}</option>`).join('');
+  document.getElementById('prevFilterDay').innerHTML = '<option value="">All lengths</option>' + days.map(d=>`<option value="${d}">${d} day(s)</option>`).join('');
+  document.getElementById('prevFilterProvider').innerHTML = '<option value="">All providers</option>' + providers.map(p=>`<option value="${p}">${p}</option>`).join('');
+
+  if (dates.includes(keep.date)) document.getElementById('prevFilterDate').value = keep.date;
+  if (groups.includes(keep.group)) document.getElementById('prevFilterGroup').value = keep.group;
+  if (days.map(String).includes(keep.day)) document.getElementById('prevFilterDay').value = keep.day;
+  if (providers.includes(keep.provider)) document.getElementById('prevFilterProvider').value = keep.provider;
+}
+['prevFilterDate','prevFilterGroup','prevFilterDay','prevFilterProvider'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderPreview);
+});
+document.getElementById('btnClearPreviewFilter').addEventListener('click', ()=>{
+  ['prevFilterDate','prevFilterGroup','prevFilterDay','prevFilterProvider'].forEach(id=>{ document.getElementById(id).value=''; });
+  renderPreview();
+});
+
+function renderPreview(){
+  const el = document.getElementById('previewTable');
+  if (!state.rows.length){
+    document.getElementById('previewCount').textContent = '0 rows';
+    el.innerHTML = '<div class="empty">Nothing imported yet.</div>';
+    return;
+  }
+  populatePreviewFilters();
+  const fDate = document.getElementById('prevFilterDate').value;
+  const fGroup = document.getElementById('prevFilterGroup').value;
+  const fDay = document.getElementById('prevFilterDay').value;
+  const fProvider = document.getElementById('prevFilterProvider').value;
+  const filtered = state.rows.filter(r=>
+    (!fDate || r.date===fDate) &&
+    (!fGroup || r.acriss===fGroup) &&
+    (!fDay || String(r.day)===fDay) &&
+    (!fProvider || r.provider===fProvider)
+  ).sort((a,b)=> a.price-b.price);
+
+  const anyFilter = fDate||fGroup||fDay||fProvider;
+  document.getElementById('previewCount').textContent = anyFilter
+    ? `${filtered.length} of ${state.rows.length} rows match`
+    : `${state.rows.length} rows`;
+
+  if (!filtered.length){ el.innerHTML = '<div class="empty">No rows match this filter.</div>'; return; }
+  let html = '<table><thead><tr><th>Date</th><th>Day</th><th>Group</th><th>Car</th><th>Provider</th><th>Price</th></tr></thead><tbody>';
+  filtered.slice(0,300).forEach((r,i)=>{
+    html += `<tr${i===0 && anyFilter ? ' style="background:rgba(212,175,55,0.10);"' : ''}><td>${r.date}</td><td>${r.day}</td><td>${r.acriss}</td><td>${r.car}</td><td>${r.provider}</td><td>${fmt(r.price)} €</td></tr>`;
+  });
+  html += '</tbody></table>';
+  if (filtered.length>300) html += `<div class="hint" style="padding:8px 4px;">Showing the cheapest 300 of ${filtered.length} matching rows — sorted lowest price first.</div>`;
+  el.innerHTML = html;
+}
+
+/* ---------------------------------------------------------------
+   FLOOR RATES TAB
+--------------------------------------------------------------- */
+function renderFloor(){
+  const body = document.getElementById('floorBody');
+  body.innerHTML = '';
+  Object.keys(state.floor).forEach(group=>{
+    const rec = state.floor[group];
+    const r1 = rec[0], r2 = rec[1];
+    const tr = document.createElement('tr');
+    const calc = (d)=>{ const v = floorTotal(group,d); return isNaN(v) ? '' : fmt(v)+' €'; };
+    tr.innerHTML = `
+      <td style="font-weight:600;">${group}</td>
+      <td><input data-g="${group}" data-f="0" type="number" step="0.01" value="${r1!==undefined && r1!=='' ? r1 : ''}" style="border-color:var(--border);"></td>
+      <td><input data-g="${group}" data-f="1" type="number" step="0.01" value="${r2!==undefined && r2!=='' ? r2 : ''}" style="border-color:var(--border);"></td>
+      <td class="calc" style="color:var(--muted);">${calc(1)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(2)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(3)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(4)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(5)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(6)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(7)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(10)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(14)}</td>
+      <td class="calc" style="color:var(--muted);">${calc(30)}</td>
+      <td><button class="btn small ghost danger" data-remove="${group}">✕</button></td>
+    `;
+    body.appendChild(tr);
+  });
+  body.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const g = inp.dataset.g, f = parseInt(inp.dataset.f,10);
+      state.floor[g][f] = inp.value==='' ? '' : parseFloat(inp.value);
+      // Update the calculated (read-only) cells in this row only — no full re-render, so focus/cursor stay put.
+      const tr = inp.closest('tr');
+      const calcCells = tr.querySelectorAll('td.calc');
+      const days = [1,2,3,4,5,6,7,10,14,30];
+      calcCells.forEach((td,i)=>{
+        const v = floorTotal(g, days[i]);
+        td.textContent = isNaN(v) ? '' : fmt(v)+' €';
+      });
+      buildResults();
+    });
+    // Excel-style grid paste: paste a multi-row/multi-column block starting at
+    // whichever cell has focus, spreading down rows and across the two rate columns.
+    inp.addEventListener('paste', (e)=>{
+      const text = (e.clipboardData || window.clipboardData).getData('text');
+      if (!text || !/[\t\n\r]/.test(text)) return; // single value — let the browser paste normally
+      e.preventDefault();
+      const groupKeys = Object.keys(state.floor);
+      const startRow = groupKeys.indexOf(inp.dataset.g);
+      const startCol = parseInt(inp.dataset.f,10);
+      const lines = text.split(/\r\n|\n|\r/).filter(l=>l.length>0);
+      lines.forEach((lineText, ri)=>{
+        const cols = lineText.split('\t');
+        cols.forEach((val, ci)=>{
+          const targetCol = startCol + ci;
+          if (targetCol > 1) return; // only two editable rate columns exist
+          const targetRowIdx = startRow + ri;
+          if (targetRowIdx < 0 || targetRowIdx >= groupKeys.length) return;
+          const num = toNum(val);
+          if (!isNaN(num)) state.floor[groupKeys[targetRowIdx]][targetCol] = num;
+        });
+      });
+      renderFloor();
+      buildResults();
+    });
+  });
+  body.querySelectorAll('[data-remove]').forEach(b=>{
+    b.addEventListener('click', ()=>{ delete state.floor[b.dataset.remove]; renderFloor(); buildResults(); });
+  });
+}
+// Bulk "paste from Excel" panel: ACRISS code + two rate columns, one group per line.
+function parseFloorPasteText(text){
+  const lines = text.split(/\r\n|\n|\r/).filter(l=>l.trim().length>0);
+  let updated = 0, skipped = 0;
+  lines.forEach(line=>{
+    const delim = detectDelimiter(line);
+    const cells = line.split(delim).map(c=>c.trim());
+    const code = (cells[0]||'').toUpperCase();
+    if (!/^[A-Z0-9]{3,5}$/.test(code)){ skipped++; return; }
+    const r1 = toNum(cells[1]);
+    const r2 = toNum(cells[2]);
+    if (isNaN(r1) && isNaN(r2)){ skipped++; return; }
+    if (!state.floor[code]) state.floor[code] = ["",""];
+    if (!isNaN(r1)) state.floor[code][0] = r1;
+    if (!isNaN(r2)) state.floor[code][1] = r2;
+    updated++;
+  });
+  return {updated, skipped};
+}
+document.getElementById('btnApplyFloorPaste').addEventListener('click', ()=>{
+  const text = document.getElementById('floorPasteArea').value;
+  const msg = document.getElementById('floorPasteMsg');
+  if (!text.trim()){ msg.textContent = 'Paste some rows first.'; return; }
+  const {updated, skipped} = parseFloorPasteText(text);
+  if (!updated){
+    msg.textContent = 'No valid rows found — first column must be a 3-5 character ACRISS code, next two columns the two rates.';
+    return;
+  }
+  renderFloor();
+  buildResults();
+  msg.textContent = `Updated ${updated} group${updated===1?'':'s'}${skipped ? ' ('+skipped+' row'+(skipped===1?'':'s')+' skipped, e.g. a header row)' : ''}.`;
+});
+document.getElementById('btnSaveFloor').addEventListener('click', ()=>{
+  const msg = document.getElementById('floorSaveMsg');
+  try{
+    localStorage.setItem('rjai_floorRates', JSON.stringify(state.floor));
+    msg.textContent = 'Saved — these floor rates load automatically next time you open this file in this browser.';
+  } catch(e){
+    msg.textContent = 'Could not save — this browser has local storage disabled for this file.';
+  }
+});
+document.getElementById('btnResetFloor').addEventListener('click', ()=>{
+  state.floor = {};
+  ACRISS_GROUPS.forEach(g=>{ state.floor[g] = DEFAULT_FLOOR[g] ? DEFAULT_FLOOR[g].slice() : ["",""]; });
+  renderFloor(); buildResults();
+  document.getElementById('floorSaveMsg').textContent = 'Reset to default floor rates — click "Save floor rates" if you want this reset to persist too.';
+});
+document.getElementById('btnAddGroup').addEventListener('click', ()=>{
+  const g = prompt('New ACRISS group code (4 letters):');
+  if (!g) return;
+  const code = g.trim().toUpperCase();
+  if (!state.floor[code]) state.floor[code] = ["",""];
+  renderFloor();
+});
+// Bulk-adjust every group's two base floor rates by a percentage at once.
+function applyFloorBulkAdjust(sign){
+  const pctInput = document.getElementById('floorBulkPct');
+  const pct = parseFloat(pctInput.value);
+  const msg = document.getElementById('floorBulkMsg');
+  if (isNaN(pct) || pct===0){ msg.textContent = 'Enter a non-zero percentage first.'; return; }
+  const factor = 1 + (sign * Math.abs(pct))/100;
+  let changed = 0;
+  Object.keys(state.floor).forEach(g=>{
+    const rec = state.floor[g];
+    [0,1].forEach(i=>{
+      const v = rec[i];
+      if (v!=='' && v!==undefined && !isNaN(v)){ rec[i] = Math.round(v*factor*100)/100; changed++; }
+    });
+  });
+  renderFloor();
+  buildResults();
+  msg.textContent = `${sign>0?'Increased':'Decreased'} ${Math.abs(pct)}% across ${Object.keys(state.floor).length} groups (${changed} rate cells updated).`;
+}
+document.getElementById('btnFloorBulkIncrease').addEventListener('click', ()=>applyFloorBulkAdjust(1));
+document.getElementById('btnFloorBulkDecrease').addEventListener('click', ()=>applyFloorBulkAdjust(-1));
+
+/* ---------------------------------------------------------------
+   SETTINGS TAB
+--------------------------------------------------------------- */
+function renderProviders(){
+  const wrap = document.getElementById('providerChecks');
+  const providers = [...new Set(state.rows.map(r=>r.provider))].sort();
+  document.getElementById('providerTag').textContent = providers.length + ' found';
+  if (!providers.length){ wrap.innerHTML = '<div class="empty">Import data to see providers.</div>'; return; }
+  wrap.innerHTML = providers.map(p=>`
+    <label class="chk"><input type="checkbox" data-provider="${p}" ${state.excluded.has(p)?'checked':''}> ${p}</label>
+  `).join('');
+  wrap.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      if (cb.checked) state.excluded.add(cb.dataset.provider); else state.excluded.delete(cb.dataset.provider);
+      buildResults();
+    });
+  });
+}
+document.querySelectorAll('.radio-opt[data-mode]').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    document.querySelectorAll('.radio-opt[data-mode]').forEach(o=>o.classList.remove('active'));
+    opt.classList.add('active');
+    state.adjMode = opt.dataset.mode;
+    const isPerDay = state.adjMode === 'perday';
+    document.getElementById('undercutValueField').style.display = isPerDay ? 'none' : 'flex';
+    document.getElementById('perDayDiscountRow').style.display = isPerDay ? 'block' : 'none';
+    buildResults();
+  });
+});
+const PER_DAY_DISCOUNT_KEYS = [1,2,3,4,5,6,7,'8-13','14-29','30+'];
+function renderPerDayDiscountTable(){
+  document.getElementById('perDayDiscountBody').innerHTML =
+    '<tr>' + PER_DAY_DISCOUNT_KEYS.map(k=>
+      `<td><input type="number" step="0.1" data-daykey="${k}" value="${state.perDayDiscount[k]}" style="width:70px;"></td>`
+    ).join('') + '</tr>';
+  document.querySelectorAll('#perDayDiscountBody input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      state.perDayDiscount[inp.dataset.daykey] = inp.value==='' ? 0 : parseFloat(inp.value);
+      buildResults();
+    });
+  });
+}
+renderPerDayDiscountTable();
+document.getElementById('btnResetPerDayDiscount').addEventListener('click', ()=>{
+  state.perDayDiscount = {1:2,2:4,3:6,4:8,5:10,6:12,7:14,'8-13':20,'14-29':28,'30+':60};
+  renderPerDayDiscountTable();
+  buildResults();
+});
+// Maps any rental length to its per-day-discount bucket — exact match for 1-7, else the
+// 8-13 / 14-29 / 30+ tier, mirroring the buckets used everywhere else in the app.
+function perDayDiscountFor(day){
+  if (day>=1 && day<=7) return state.perDayDiscount[day];
+  if (day<=13) return state.perDayDiscount['8-13'];
+  if (day<=29) return state.perDayDiscount['14-29'];
+  return state.perDayDiscount['30+'];
+}
+
+/* ---------------------------------------------------------------
+   SAVE / RESET PRICING RULES (undercut strategy, per-day discounts,
+   keep-if-top, rating scale, category price rules, excluded competitors)
+--------------------------------------------------------------- */
+const PRICING_DEFAULTS = {
+  adjMode: 'fixed',
+  adjValue: 2,
+  enforceFloor: true,
+  perDayDiscount: {1:2,2:4,3:6,4:8,5:10,6:12,7:14,'8-13':20,'14-29':28,'30+':60},
+  keepIfTop: false,
+  ratingScale: false,
+  ratingScalePct: 4,
+  priceRules: [],
+  excluded: []
+};
+function getPricingConfig(){
+  return {
+    adjMode: state.adjMode,
+    adjValue: state.adjValue,
+    enforceFloor: state.enforceFloor,
+    perDayDiscount: {...state.perDayDiscount},
+    keepIfTop: state.keepIfTop,
+    ratingScale: state.ratingScale,
+    ratingScalePct: state.ratingScalePct,
+    priceRules: JSON.parse(JSON.stringify(state.priceRules)),
+    excluded: [...state.excluded]
+  };
+}
+function applyPricingConfig(cfg){
+  state.adjMode = cfg.adjMode || 'fixed';
+  state.adjValue = cfg.adjValue ?? 2;
+  state.enforceFloor = cfg.enforceFloor !== false;
+  state.perDayDiscount = {...(cfg.perDayDiscount || PRICING_DEFAULTS.perDayDiscount)};
+  state.keepIfTop = !!cfg.keepIfTop;
+  state.ratingScale = !!cfg.ratingScale;
+  state.ratingScalePct = cfg.ratingScalePct ?? 4;
+  state.priceRules = JSON.parse(JSON.stringify(cfg.priceRules || []));
+  state.excluded = new Set(cfg.excluded || []);
+
+  document.querySelectorAll('.radio-opt[data-mode]').forEach(o=>o.classList.toggle('active', o.dataset.mode===state.adjMode));
+  document.getElementById('adjValue').value = state.adjValue;
+  document.getElementById('enforceFloor').value = state.enforceFloor ? '1' : '0';
+  document.getElementById('undercutValueField').style.display = state.adjMode==='perday' ? 'none' : 'flex';
+  document.getElementById('perDayDiscountRow').style.display = state.adjMode==='perday' ? 'block' : 'none';
+  renderPerDayDiscountTable();
+  document.getElementById('keepIfTop').checked = state.keepIfTop;
+  document.getElementById('ratingScale').checked = state.ratingScale;
+  document.getElementById('ratingScalePct').value = state.ratingScalePct;
+  ruleIdCounter = state.priceRules.reduce((m,r)=>Math.max(m,r.id+1), 1);
+  renderProviders();
+  renderPriceRules();
+  buildResults();
+}
+document.getElementById('btnSaveRules').addEventListener('click', ()=>{
+  const msg = document.getElementById('rulesSaveMsg');
+  try{
+    localStorage.setItem('rjai_pricingRules', JSON.stringify(getPricingConfig()));
+    msg.textContent = 'Saved — these rules load automatically next time you open this file in this browser.';
+  } catch(e){
+    msg.textContent = 'Could not save — this browser has local storage disabled for this file.';
+  }
+});
+document.getElementById('btnResetRules').addEventListener('click', ()=>{
+  applyPricingConfig(JSON.parse(JSON.stringify(PRICING_DEFAULTS)));
+  document.getElementById('rulesSaveMsg').textContent = 'Reset to default pricing rules — click "Save these pricing rules" if you want this reset to persist too.';
+});
+function loadSavedPricingRules(){
+  try{
+    const raw = localStorage.getItem('rjai_pricingRules');
+    if (raw) applyPricingConfig(JSON.parse(raw));
+  } catch(e){ /* storage unavailable — carry on with defaults */ }
+}
+
+document.querySelectorAll('.radio-opt[data-price-source]').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    document.querySelectorAll('.radio-opt[data-price-source]').forEach(o=>o.classList.remove('active'));
+    opt.classList.add('active');
+    state.exportPriceSource = opt.dataset.priceSource;
+    const isFloor = state.exportPriceSource === 'floor';
+    document.getElementById('floorOnlyDateRow').style.display = isFloor ? 'flex' : 'none';
+    document.getElementById('priceSourceHint').textContent = isFloor
+      ? 'Every rate column will be your floor table\'s own per-day rate — competitor data is ignored entirely for this export, even if you\'ve imported some.'
+      : 'Using your imported competitor data\'s dates. Import a file first (tab 01) so the export has dates to generate rows for.';
+  });
+});
+document.getElementById('adjValue').addEventListener('input', (e)=>{
+  state.adjValue = parseFloat(e.target.value)||0; buildResults();
+});
+document.getElementById('enforceFloor').addEventListener('change', (e)=>{
+  state.enforceFloor = e.target.value==='1'; buildResults();
+});
+document.getElementById('keepIfTop').addEventListener('change', (e)=>{
+  state.keepIfTop = e.target.checked; buildResults();
+});
+document.getElementById('ratingScale').addEventListener('change', (e)=>{
+  state.ratingScale = e.target.checked; buildResults();
+});
+document.getElementById('ratingScalePct').addEventListener('input', (e)=>{
+  state.ratingScalePct = parseFloat(e.target.value)||0; buildResults();
+});
+document.getElementById('restrictAcriss').addEventListener('change', reprocessImport);
+document.getElementById('importBrokerMarginPct').addEventListener('input', reprocessImport);
+document.getElementById('btnSaveAcrissMap').addEventListener('click', ()=>{
+  const msg = document.getElementById('acrissMapSaveMsg');
+  try{
+    localStorage.setItem('rjai_acrissMap', JSON.stringify(state.acrissMap));
+    const count = Object.keys(state.acrissMap).length;
+    msg.textContent = count
+      ? `Saved ${count} mapping(s) — they'll auto-apply next time you open this file in this browser.`
+      : 'No mappings set yet — pick a "Merge into" option above first.';
+  } catch(e){
+    msg.textContent = 'Could not save — this browser has local storage disabled for this file.';
+  }
+});
+document.getElementById('btnClearAcrissMap').addEventListener('click', ()=>{
+  state.acrissMap = {};
+  const msg = document.getElementById('acrissMapSaveMsg');
+  try{ localStorage.removeItem('rjai_acrissMap'); } catch(e){}
+  msg.textContent = 'Cleared saved mappings.';
+  reprocessImport();
+});
+document.getElementById('metaOffice').addEventListener('change', (e)=>{
+  if (e.target.value !== '__custom') document.getElementById('metaZone').value = e.target.value;
+  updateOfficeStatusPill();
+});
+
+/* ---------------------------------------------------------------
+   CATEGORY PRICE RULES
+--------------------------------------------------------------- */
+let ruleIdCounter = 1;
+const rulePanelOpen = {}; // key: `${ruleId}-acriss` / `${ruleId}-date` -> bool, so re-renders don't collapse an open dropdown mid-selection
+function summarize(list, allLabel, formatFn){
+  if (!list.length) return allLabel;
+  if (list.length===ACRISS_GROUPS.length && list.every(g=>ACRISS_GROUPS.includes(g))) return `All ${ACRISS_GROUPS.length} categories`;
+  const names = list.map(formatFn || (x=>x));
+  return names.length<=2 ? names.join(', ') : `${names.length} selected`;
+}
+function renderPriceRules(){
+  const body = document.getElementById('rulesBody');
+  const dates = [...new Set(state.rows.map(r=>r.date))].sort();
+  if (!state.priceRules.length){
+    body.innerHTML = '<tr><td colspan="5" class="empty" style="padding:14px;">No rules yet — click "+ Add rule" to set a group-specific price.</td></tr>';
+    return;
+  }
+  body.innerHTML = state.priceRules.map(rule=>{
+    const groupPanel = `<label style="font-weight:600; color:var(--accent);"><input type="checkbox" data-rid="${rule.id}" data-rf="acriss-all" ${rule.acrissList.length===ACRISS_GROUPS.length?'checked':''}> Select all ${ACRISS_GROUPS.length} categories</label>` +
+      '<div class="ms-divider"></div>' +
+      ACRISS_GROUPS.map(g=>
+        `<label><input type="checkbox" data-rid="${rule.id}" data-rf="acriss" value="${g}" ${rule.acrissList.includes(g)?'checked':''}> ${g}</label>`
+      ).join('');
+    const datePanel = `<label><input type="checkbox" data-rid="${rule.id}" data-rf="date-all" ${rule.dateList.length===0?'checked':''}> All dates</label>` +
+      '<div class="ms-divider"></div>' +
+      dates.map(d=>
+        `<label><input type="checkbox" data-rid="${rule.id}" data-rf="date" value="${d}" ${rule.dateList.includes(d)?'checked':''}> ${toDdMmYyyy(d)}</label>`
+      ).join('');
+    const groupSummary = summarize(rule.acrissList, 'Select group(s)');
+    const dateSummary = summarize(rule.dateList, 'All dates', toDdMmYyyy);
+    const gOpen = rulePanelOpen[`${rule.id}-acriss`] ? 'open' : '';
+    const dOpen = rulePanelOpen[`${rule.id}-date`] ? 'open' : '';
+    return `<tr>
+      <td><details class="ms" data-panel="${rule.id}-acriss" ${gOpen}><summary>${groupSummary}</summary><div class="ms-panel">${groupPanel}</div></details></td>
+      <td><details class="ms" data-panel="${rule.id}-date" ${dOpen}><summary>${dateSummary}</summary><div class="ms-panel">${datePanel}</div></details></td>
+      <td><select data-rid="${rule.id}" data-rf="mode">
+            <option value="cheaper" ${rule.mode==='cheaper'?'selected':''}>€ cheaper than #1 competitor</option>
+            <option value="expensive" ${rule.mode==='expensive'?'selected':''}>€ more expensive than #1 competitor</option>
+          </select></td>
+      <td><input type="number" step="0.01" min="0" data-rid="${rule.id}" data-rf="value" value="${rule.value}" style="width:90px;"></td>
+      <td><button class="btn small ghost danger" data-rremove="${rule.id}">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  body.querySelectorAll('details.ms').forEach(det=>{
+    det.addEventListener('toggle', ()=>{ rulePanelOpen[det.dataset.panel] = det.open; });
+  });
+
+  body.querySelectorAll('select[data-rf="mode"], input[data-rf="value"]').forEach(el=>{
+    el.addEventListener(el.tagName==='SELECT' ? 'change' : 'input', ()=>{
+      const rule = state.priceRules.find(r=>r.id===Number(el.dataset.rid));
+      if (!rule) return;
+      rule[el.dataset.rf] = el.dataset.rf==='value' ? (parseFloat(el.value)||0) : el.value;
+      buildResults();
+    });
+  });
+
+  body.querySelectorAll('input[data-rf="acriss-all"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const rule = state.priceRules.find(r=>r.id===Number(cb.dataset.rid));
+      if (!rule) return;
+      rule.acrissList = cb.checked ? ACRISS_GROUPS.slice() : [];
+      renderPriceRules();
+      buildResults();
+    });
+  });
+  body.querySelectorAll('input[data-rf="acriss"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const rule = state.priceRules.find(r=>r.id===Number(cb.dataset.rid));
+      if (!rule) return;
+      if (cb.checked){ if (!rule.acrissList.includes(cb.value)) rule.acrissList.push(cb.value); }
+      else { rule.acrissList = rule.acrissList.filter(g=>g!==cb.value); }
+      renderPriceRules();
+      buildResults();
+    });
+  });
+
+  body.querySelectorAll('input[data-rf="date-all"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const rule = state.priceRules.find(r=>r.id===Number(cb.dataset.rid));
+      if (!rule) return;
+      if (cb.checked) rule.dateList = [];
+      renderPriceRules();
+      buildResults();
+    });
+  });
+  body.querySelectorAll('input[data-rf="date"]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const rule = state.priceRules.find(r=>r.id===Number(cb.dataset.rid));
+      if (!rule) return;
+      if (cb.checked){ if (!rule.dateList.includes(cb.value)) rule.dateList.push(cb.value); }
+      else { rule.dateList = rule.dateList.filter(d=>d!==cb.value); }
+      renderPriceRules();
+      buildResults();
+    });
+  });
+
+  body.querySelectorAll('[data-rremove]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.priceRules = state.priceRules.filter(r=>r.id!==Number(btn.dataset.rremove));
+      renderPriceRules();
+      buildResults();
+    });
+  });
+}
+document.getElementById('btnAddRule').addEventListener('click', ()=>{
+  state.priceRules.push({id: ruleIdCounter++, acrissList: [ACRISS_GROUPS[0]], dateList: [], mode: 'cheaper', value: 2});
+  renderPriceRules();
+  buildResults();
+});
+renderPriceRules();
+document.addEventListener('click', (e)=>{
+  document.querySelectorAll('details.ms[open]').forEach(det=>{
+    if (!det.contains(e.target)) det.open = false;
+  });
+});
+
+/* ---------------------------------------------------------------
+   CALCULATION
+--------------------------------------------------------------- */
+// Category price rules: a date-specific rule matching a group wins over an
+// "all dates" rule for the same group; otherwise there's no rule and the
+// default undercut/markup settings apply. A rule can cover several groups
+// and several dates at once.
+function findPriceRule(acriss, date){
+  const specific = state.priceRules.find(r=>r.acrissList.includes(acriss) && r.dateList.length && r.dateList.includes(date));
+  if (specific) return specific;
+  return state.priceRules.find(r=>r.acrissList.includes(acriss) && r.dateList.length===0) || null;
+}
+
+function buildResults(){
+  const groups = {};
+  state.rows.forEach(r=>{
+    if (state.excluded.has(r.provider)) return;
+    const key = `${r.date}|${r.day}|${r.acriss}`;
+    if (!groups[key]) groups[key] = {date:r.date, day:r.day, acriss:r.acriss, list:[]};
+    groups[key].list.push({provider:r.provider, price:r.price, rating:r.rating});
+  });
+  // Wheego's own listing (excluded from the competitor pool above) is still useful as a
+  // reference for the "keep if already #1" and rating-scale rules below — its own current
+  // price and star rating, straight from the import.
+  const wheegoOwn = {};
+  if (state.keepIfTop || state.ratingScale){
+    state.rows.filter(r=>r.provider.toLowerCase()==='wheego').forEach(r=>{
+      const key = `${r.date}|${r.day}|${r.acriss}`;
+      if (!wheegoOwn[key] || r.price < wheegoOwn[key].price) wheegoOwn[key] = {price:r.price, rating:r.rating};
+    });
+  }
+  const results = Object.values(groups).map(g=>{
+    g.list.sort((a,b)=>a.price-b.price);
+    const marketMin = g.list[0] ? g.list[0].price : NaN;
+    const key = `${g.date}|${g.day}|${g.acriss}`;
+    let floorVal = floorTotal(g.acriss, g.day);
+    let ourPrice, ruleLabel = '', keptAsTop = false;
+
+    // Already #1 at minimum price: if Wheego's own imported price already beats every
+    // competitor, leave it exactly as imported rather than undercutting it further.
+    if (state.keepIfTop && wheegoOwn[key] && wheegoOwn[key].price <= marketMin){
+      ourPrice = wheegoOwn[key].price;
+      keptAsTop = true;
+      ruleLabel = 'kept — already #1';
+    } else {
+      const rule = findPriceRule(g.acriss, g.date);
+      // Rating scale adjusts the *reference* price first (up or down, based on the star-rating
+      // gap to the #1 competitor) — then the category rule or the flat/percentage undercut still
+      // applies on top of that adjusted price, so both effects stack instead of one replacing
+      // the other.
+      let referencePrice = marketMin;
+      const wRatingForScale = wheegoOwn[key] ? wheegoOwn[key].rating : NaN;
+      const topRatingForScale = g.list[0] ? g.list[0].rating : NaN;
+      const ratingScaled = state.ratingScale && !isNaN(wRatingForScale) && !isNaN(topRatingForScale) && !isNaN(marketMin);
+      let ratingNote = '';
+      if (ratingScaled){
+        let ratingDiff = wRatingForScale - topRatingForScale;
+        ratingDiff = Math.max(-10, Math.min(10, ratingDiff)); // ratings span 0-10, so the gap can't exceed that
+        const pctChange = (ratingDiff/0.1) * state.ratingScalePct;
+        referencePrice = marketMin * (1 + pctChange/100);
+        ratingNote = `rating ${ratingDiff>=0?'+':''}${fmt(ratingDiff)}★→${pctChange>=0?'+':''}${fmt(pctChange)}%`;
+      }
+      if (rule){
+        ourPrice = rule.mode==='cheaper' ? referencePrice - rule.value : referencePrice + rule.value;
+        ruleLabel = (ratingNote ? ratingNote+' then ' : '') + `${rule.mode==='cheaper' ? '−' : '+'}${fmt(rule.value)} € rule`;
+      } else if (state.adjMode==='perday'){
+        const disc = perDayDiscountFor(g.day);
+        ourPrice = referencePrice - (isNaN(disc) ? 0 : disc);
+        if (ratingNote) ruleLabel = `${ratingNote} then −${fmt(disc)} €/${g.day}d`;
+      } else {
+        ourPrice = state.adjMode==='fixed' ? referencePrice - state.adjValue : referencePrice*(1-state.adjValue/100);
+        if (ratingNote){
+          ruleLabel = `${ratingNote} then ${state.adjMode==='fixed' ? '−'+fmt(state.adjValue)+' €' : '−'+fmt(state.adjValue)+'%'}`;
+        }
+      }
+    }
+    if (state.enforceFloor && !isNaN(floorVal)) ourPrice = Math.max(ourPrice, floorVal);
+    ourPrice = Math.max(0, Math.round(ourPrice*100)/100);
+
+    const combined = g.list.map(x=>x.price).concat([ourPrice]).sort((a,b)=>a-b);
+    const ourRank = combined.indexOf(ourPrice)+1;
+    return {
+      date:g.date, day:g.day, acriss:g.acriss, count:g.list.length,
+      top3: g.list.slice(0,3), marketMin, ourPrice, floorVal, ourRank, isTop: ourRank===1, ruleLabel, keptAsTop
+    };
+  });
+  results.sort((a,b)=> a.date.localeCompare(b.date) || a.acriss.localeCompare(b.acriss) || a.day-b.day);
+  state.results = results;
+  updateStatus();
+  renderResults();
+  if (document.getElementById('tab-analysis').style.display !== 'none'){
+    populateAnalysisControls();
+    renderAnalysisCharts();
+  }
+  if (document.getElementById('tab-export').style.display !== 'none') renderExportDateSettings();
+}
+
+function populateResultsDateFilter(){
+  const sel = document.getElementById('resultsDateFilter');
+  const dates = [...new Set(state.results.map(r=>r.date))].sort();
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">All dates</option>' +
+    dates.map(d=>`<option value="${d}">${toDdMmYyyy(d)}</option>`).join('');
+  if (dates.includes(keep)) sel.value = keep;
+}
+document.getElementById('resultsDateFilter').addEventListener('change', renderResults);
+
+function populateResultsGroupFilter(){
+  const sel = document.getElementById('resultsGroupFilter');
+  const groups = [...new Set(state.results.map(r=>r.acriss))].sort();
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">All groups</option>' +
+    groups.map(g=>`<option value="${g}">${g}</option>`).join('');
+  if (groups.includes(keep)) sel.value = keep;
+}
+document.getElementById('resultsGroupFilter').addEventListener('change', renderResults);
+
+function renderResults(){
+  populateResultsDateFilter();
+  populateResultsGroupFilter();
+  populateGridDate();
+  renderBrokerGrid();
+  const filterDate = document.getElementById('resultsDateFilter').value;
+  const filterGroup = document.getElementById('resultsGroupFilter').value;
+  const rows = state.results.filter(r=>
+    (!filterDate || r.date===filterDate) && (!filterGroup || r.acriss===filterGroup)
+  );
+  const body = document.getElementById('resultsBody');
+  const labelParts = [];
+  if (filterDate) labelParts.push(toDdMmYyyy(filterDate));
+  if (filterGroup) labelParts.push(filterGroup);
+  document.getElementById('resultCount').textContent = rows.length + ' combinations' + (labelParts.length ? ` for ${labelParts.join(' · ')}` : '');
+  if (!state.results.length){ body.innerHTML = '<tr><td colspan="12" class="empty">No results yet — import data first.</td></tr>'; return; }
+  if (!rows.length){ body.innerHTML = '<tr><td colspan="12" class="empty">No results for this filter.</td></tr>'; return; }
+  body.innerHTML = rows.map(r=>{
+    const c = r.top3;
+    const cell = (i)=> c[i] ? `${c[i].provider} — ${fmt(c[i].price)} €` : '—';
+    return `<tr class="${r.isTop?'rank1':''}">
+      <td>${toDdMmYyyy(r.date)}</td><td>${r.day}</td><td style="font-weight:600;">${r.acriss}</td><td>${r.count}</td>
+      <td>${cell(0)}</td><td>${cell(1)}</td><td>${cell(2)}</td>
+      <td>${fmt(r.marketMin)} €</td>
+      <td style="font-weight:600;">${fmt(r.ourPrice)} €</td>
+      <td>${r.keptAsTop ? '<span class="pill green">'+r.ruleLabel+'</span>' : (r.ruleLabel ? '<span class="pill green" style="color:var(--accent); background:var(--accent-bg);">'+r.ruleLabel+'</span>' : '<span class="pill muted">default</span>')}</td>
+      <td>${isNaN(r.floorVal)?'—':fmt(r.floorVal)+' €'}</td>
+      <td>${r.isTop ? '<span class="pill green">Wheego #1</span>' : '<span class="pill muted">#'+r.ourRank+'</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+document.getElementById('btnRecalc').addEventListener('click', buildResults);
+
+/* ---------------------------------------------------------------
+   BROKER-STYLE HORIZONTAL GRID (one row per group, all rental
+   lengths side by side, for a single booking date)
+--------------------------------------------------------------- */
+const GRID_DAYS = [1,2,3,4,5,6,7,8,14,30];
+function bucketRangeFor(d){
+  if (d===8) return [8,13];
+  if (d===14) return [14,29];
+  if (d===30) return [30,9999];
+  return [d,d];
+}
+function findResultForBucket(date, group, d){
+  const [lo,hi] = bucketRangeFor(d);
+  // When multiple day-lengths fall in the same bucket (e.g. both day=8 and day=10
+  // exist for the "8-13" tier), use whichever gives the CHEAPEST Wheego price —
+  // not just whichever has the smaller day number.
+  const candidates = state.results
+    .filter(r=>r.date===date && r.acriss===group && r.day>=lo && r.day<=hi)
+    .sort((a,b)=>a.ourPrice-b.ourPrice);
+  return candidates[0] || null;
+}
+function populateGridDate(){
+  const sel = document.getElementById('gridDateSelect');
+  const dates = [...new Set(state.results.map(r=>r.date))].sort();
+  const keep = sel.value;
+  sel.innerHTML = dates.map(d=>`<option value="${d}">${toDdMmYyyy(d)}</option>`).join('');
+  if (dates.includes(keep)) sel.value = keep;
+}
+document.getElementById('gridDateSelect').addEventListener('change', renderBrokerGrid);
+document.getElementById('gridShowNames').addEventListener('change', renderBrokerGrid);
+
+function renderBrokerGrid(){
+  const table = document.getElementById('brokerGridTable');
+  const date = document.getElementById('gridDateSelect').value;
+  if (!date){ table.innerHTML = '<tr><td style="border:none; color:var(--muted); padding:14px;">Import data to see the grid.</td></tr>'; return; }
+  const groups = [...new Set(state.results.filter(r=>r.date===date).map(r=>r.acriss))].sort();
+  if (!groups.length){ table.innerHTML = '<tr><td style="border:none; color:var(--muted); padding:14px;">No results for this date.</td></tr>'; return; }
+  const showNames = document.getElementById('gridShowNames').checked;
+
+  let h1 = '<tr><th class="grid-group-h" rowspan="2">Group</th>';
+  GRID_DAYS.forEach(d=>{ h1 += `<th colspan="6">${d} ${d===1?'day':'days'}</th>`; });
+  h1 += '</tr>';
+  let h2 = '<tr>';
+  GRID_DAYS.forEach(()=>{ h2 += '<th>#1</th><th>#2</th><th>#3</th><th>Avg</th><th>Rank</th><th>Rate</th>'; });
+  h2 += '</tr>';
+
+  let body = '';
+  groups.forEach((g,gi)=>{
+    body += `<tr class="${gi%2 ? 'block-alt' : ''}"><td class="grid-group">${g}</td>`;
+    GRID_DAYS.forEach(d=>{
+      const res = findResultForBucket(date, g, d);
+      if (!res){
+        body += '<td class="grid-nodata">—</td><td class="grid-nodata">—</td><td class="grid-nodata">—</td><td class="grid-nodata">—</td><td class="grid-nodata">—</td><td class="grid-nodata">—</td>';
+        return;
+      }
+      const c = res.top3;
+      const p = (i)=>{
+        if (!c[i]) return '—';
+        const priceHtml = fmt(c[i].price);
+        return showNames
+          ? `<span title="${c[i].provider}">${priceHtml}</span><span class="grid-provider">${c[i].provider}</span>`
+          : `<span title="${c[i].provider}">${priceHtml}</span>`;
+      };
+      const avg = c.length ? fmt(c.reduce((a,x)=>a+x.price,0)/c.length) : '—';
+      const rateClass = res.isTop ? 'grid-rate-top' : 'grid-rate-other';
+      body += `<td>${p(0)}</td><td>${p(1)}</td><td>${p(2)}</td><td>${avg}</td><td>${res.ourRank}</td><td class="${rateClass}">${fmt(res.ourPrice)}</td>`;
+    });
+    body += '</tr>';
+  });
+
+  table.innerHTML = '<thead>'+h1+h2+'</thead><tbody>'+body+'</tbody>';
+}
+
+function updateStatus(){
+  document.getElementById('statRows').textContent = state.rows.length;
+  document.getElementById('statDates').textContent = new Set(state.rows.map(r=>r.date)).size;
+  document.getElementById('statProviders').textContent = new Set(state.rows.map(r=>r.provider)).size;
+  document.getElementById('statGroups').textContent = new Set(state.results.map(r=>r.acriss)).size;
+}
+
+/* ---------------------------------------------------------------
+   PRICE ANALYSIS TAB — plain <canvas> drawing, no external library
+--------------------------------------------------------------- */
+function populateAnalysisControls(){
+  const groupSel = document.getElementById('anaGroup');
+  const dateSel = document.getElementById('anaDate');
+  const daySel = document.getElementById('anaDay');
+  const groups = [...new Set(state.rows.map(r=>r.acriss))].sort();
+  const dates = [...new Set(state.rows.map(r=>r.date))].sort();
+  const days = [...new Set(state.rows.map(r=>r.day))].sort((a,b)=>a-b);
+  const keepG = groupSel.value, keepD = dateSel.value, keepDay = daySel.value;
+  groupSel.innerHTML = groups.map(g=>`<option value="${g}">${g}</option>`).join('');
+  dateSel.innerHTML = dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  daySel.innerHTML = days.map(d=>`<option value="${d}">${d} day(s)</option>`).join('');
+  if (groups.includes(keepG)) groupSel.value = keepG;
+  if (dates.includes(keepD)) dateSel.value = keepD;
+  if (days.map(String).includes(keepDay)) daySel.value = keepDay;
+}
+['anaGroup','anaDate','anaDay'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', renderAnalysisCharts);
+});
+// Debounced resize/zoom handler — browser zoom fires a burst of resize events while the
+// layout is still settling, so redrawing on every single one can hit transient zero/NaN
+// canvas sizes. Wait for the burst to finish, then redraw once.
+let resizeRedrawTimer = null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(resizeRedrawTimer);
+  resizeRedrawTimer = setTimeout(()=>{
+    if (document.getElementById('tab-analysis').style.display !== 'none') renderAnalysisCharts();
+    if (document.getElementById('tab-results').style.display !== 'none') renderBrokerGrid();
+  }, 150);
+});
+
+function renderAnalysisCharts(){
+  const msg = document.getElementById('analysisMsg');
+  if (!state.rows.length){ msg.textContent = 'Import data first.'; return; }
+  msg.textContent = '';
+  const group = document.getElementById('anaGroup').value;
+  const date = document.getElementById('anaDate').value;
+  const day = parseInt(document.getElementById('anaDay').value,10);
+  if (!group || !date || !day) return;
+  // Wrapped so a transient layout glitch (e.g. mid browser-zoom reflow) can't leave the
+  // page in a broken state — worst case a chart just skips one redraw and catches up
+  // on the next resize/interaction.
+  try{
+    renderByLengthChart(group, date);
+    renderByProviderChart(group, date);
+    renderByDateChart(group, day);
+    renderByCompetitorTrendChart(group, day);
+    renderWinRateChart(group);
+  } catch(err){ console.error('Chart render skipped:', err); }
+}
+
+// Prepares a canvas for crisp drawing at the element's actual on-screen size.
+function primeCanvas(canvas){
+  // Render at up to 3x pixel density (not just the display's own DPR) for crisp,
+  // high-resolution charts on any screen, with smooth anti-aliased line joins.
+  const dpr = Math.min((window.devicePixelRatio || 1) * 1.5, 3);
+  const rect = canvas.getBoundingClientRect();
+  // Guard against transient/invalid sizes while the browser is still settling a zoom-level
+  // change (getBoundingClientRect can briefly report 0 or fractional values mid-reflow).
+  let w = rect.width, h = rect.height;
+  if (!isFinite(w) || w <= 0) w = 300;
+  if (!isFinite(h) || h <= 0) h = 150;
+  w = Math.min(Math.max(w, 50), 4000);
+  h = Math.min(Math.max(h, 50), 4000);
+  // Cap the backing-store pixel size too, so extreme zoom levels can't exceed the browser's
+  // own canvas size limit (which throws otherwise).
+  const pixelW = Math.min(Math.max(Math.round(w*dpr), 1), 8000);
+  const pixelH = Math.min(Math.max(Math.round(h*dpr), 1), 8000);
+  canvas.width = pixelW; canvas.height = pixelH;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.imageSmoothingEnabled = true;
+  if ('imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality = 'high';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  return {ctx, w, h};
+}
+function noData(ctx,w,h,text){
+  ctx.fillStyle = getThemeColors().muted; ctx.font = '12px Inter, sans-serif'; ctx.textAlign='center';
+  ctx.fillText(text||'No data for this selection', w/2, h/2);
+  ctx.textAlign='left';
+}
+
+// Shared Power-BI-style hover tooltip used by every chart.
+const chartTooltipEl = document.getElementById('chartTooltip');
+function showChartTooltip(clientX, clientY, title, rows){
+  chartTooltipEl.innerHTML =
+    `<div class="tt-title">${title}</div>` +
+    rows.map(r=>`<div class="tt-row"><span class="tt-swatch" style="background:${r.color};"></span><span class="tt-name">${r.name}</span><span class="tt-val">${r.value}</span></div>`).join('');
+  chartTooltipEl.style.display = 'block';
+  const ttW = chartTooltipEl.offsetWidth, ttH = chartTooltipEl.offsetHeight;
+  let left = clientX + 14, top = clientY + 14;
+  if (left + ttW > window.innerWidth - 8) left = clientX - ttW - 14;
+  if (top + ttH > window.innerHeight - 8) top = clientY - ttH - 14;
+  chartTooltipEl.style.left = left + 'px';
+  chartTooltipEl.style.top = top + 'px';
+}
+function hideChartTooltip(){ chartTooltipEl.style.display = 'none'; }
+
+// Multi-series line chart. series: [{name,color,data:[num|null],dashed,width,pointColors:[color|null]}]
+function drawLineChart(canvas, labels, series){
+  const {ctx,w,h} = primeCanvas(canvas);
+  const vals = [];
+  series.forEach(s=>s.data.forEach(v=>{ if (v!==null && v!==undefined && !isNaN(v)) vals.push(v); }));
+  if (!vals.length){ noData(ctx,w,h); canvas.onmousemove=null; canvas.onmouseleave=null; return; }
+
+  // Lay out the legend first (it may wrap onto several lines when there are many
+  // series, e.g. one line per competitor) so we know how much top padding to reserve.
+  ctx.font = '11px Inter, sans-serif';
+  const padL=48, padR=14, padB=28;
+  const availW = w - padL - padR;
+  const legendRows = [[]];
+  let rowW = 0;
+  series.forEach(s=>{
+    const itemW = ctx.measureText(s.name).width + 28;
+    if (rowW + itemW > availW && rowW > 0){ legendRows.push([]); rowW = 0; }
+    legendRows[legendRows.length-1].push(s);
+    rowW += itemW;
+  });
+  const padT = 10 + legendRows.length*17 + 6;
+
+  const chartW = w-padL-padR, chartH = h-padT-padB;
+  let vmin = Math.min(...vals), vmax = Math.max(...vals);
+  if (vmin===vmax){ vmin -= 1; vmax += 1; }
+  const pad = (vmax-vmin)*0.12; vmin = Math.max(0, vmin-pad); vmax += pad;
+  const n = labels.length;
+  const x = i => padL + (n<=1 ? chartW/2 : chartW*i/(n-1));
+  const y = v => padT + chartH - ((v-vmin)/(vmax-vmin))*chartH;
+
+  function paint(hoverIdx){
+    ctx.clearRect(0,0,w,h);
+    const tc = getThemeColors();
+    ctx.strokeStyle = tc.border; ctx.fillStyle = tc.muted; ctx.font = '10px "IBM Plex Mono", monospace'; ctx.lineWidth = 1;
+    const ticks = 4;
+    for (let t=0;t<=ticks;t++){
+      const v = vmin + (vmax-vmin)*t/ticks;
+      const yy = y(v);
+      ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(padL+chartW,yy); ctx.stroke();
+      ctx.fillText(Math.round(v)+'€', 2, yy+3);
+    }
+    const maxLabels = Math.max(2, Math.floor(chartW/62));
+    const stride = Math.max(1, Math.ceil(n/maxLabels));
+    // Right-align the very first label and left-align the very last one so their text stays
+    // inside the canvas instead of being centered off the edge and clipped (e.g. a full date
+    // like "2026-07-10" silently losing its "-10" because it was centered exactly on the
+    // rightmost point, past the canvas boundary).
+    labels.forEach((lb,i)=>{
+      if (i % stride !== 0 && i!==n-1) return;
+      if (i===0){ ctx.textAlign='left'; ctx.fillText(String(lb), Math.max(x(i), padL), padT+chartH+16); }
+      else if (i===n-1){ ctx.textAlign='right'; ctx.fillText(String(lb), Math.min(x(i), padL+chartW), padT+chartH+16); }
+      else { ctx.textAlign='center'; ctx.fillText(String(lb), x(i), padT+chartH+16); }
+    });
+    ctx.textAlign = 'left';
+
+    legendRows.forEach((row,ri)=>{
+      let lx = padL;
+      const ly = 8 + ri*17;
+      row.forEach(s=>{
+        ctx.fillStyle = s.color; ctx.fillRect(lx, ly, 10, 3);
+        ctx.fillStyle = tc.text; ctx.font = '11px Inter, sans-serif';
+        ctx.fillText(s.name, lx+14, ly+7);
+        lx += ctx.measureText(s.name).width + 28;
+      });
+    });
+
+    series.forEach(s=>{
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width||1.4;
+      ctx.setLineDash(s.dashed ? [4,3] : []);
+      ctx.beginPath();
+      let started = false;
+      s.data.forEach((v,i)=>{
+        if (v===null||v===undefined||isNaN(v)){ started=false; return; }
+        const xx=x(i), yy=y(v);
+        if (!started){ ctx.moveTo(xx,yy); started=true; } else ctx.lineTo(xx,yy);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      s.data.forEach((v,i)=>{
+        if (v===null||v===undefined||isNaN(v)) return;
+        const isHover = hoverIdx===i;
+        ctx.beginPath();
+        ctx.fillStyle = (s.pointColors && s.pointColors[i]) ? s.pointColors[i] : s.color;
+        ctx.arc(x(i), y(v), isHover ? (s.pointRadius||2.4)+2.2 : (s.pointRadius||2.4), 0, Math.PI*2);
+        ctx.fill();
+        if (isHover){ ctx.lineWidth=1.5; ctx.strokeStyle=tc.bg; ctx.stroke(); }
+      });
+    });
+
+    if (hoverIdx!==null && hoverIdx!==undefined){
+      ctx.strokeStyle = tc.text; ctx.globalAlpha = 0.35; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.moveTo(x(hoverIdx), padT); ctx.lineTo(x(hoverIdx), padT+chartH); ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
+  }
+  paint(null);
+
+  canvas.onmousemove = (e)=>{
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    if (mx < padL-10 || mx > padL+chartW+10){ paint(null); hideChartTooltip(); return; }
+    const idx = n<=1 ? 0 : Math.round(((mx-padL)/chartW)*(n-1));
+    const clamped = Math.max(0, Math.min(n-1, idx));
+    paint(clamped);
+    const rows = series
+      .filter(s=> s.data[clamped]!==null && s.data[clamped]!==undefined && !isNaN(s.data[clamped]))
+      .map(s=>({name:s.name, color:s.color, value: fmt(s.data[clamped])+' €'}));
+    showChartTooltip(e.clientX, e.clientY, String(labels[clamped]), rows);
+  };
+  canvas.onmouseleave = ()=>{ paint(null); hideChartTooltip(); };
+}
+
+// Horizontal bar chart. entries: [[label, value], ...]
+function drawBarChart(canvas, entries, colorFn, valueFormatter){
+  const {ctx,w,h} = primeCanvas(canvas);
+  if (!entries.length){ noData(ctx,w,h); canvas.onmousemove=null; canvas.onmouseleave=null; return; }
+  const fmtVal = valueFormatter || (v => fmt(v)+' €');
+  const padL = 116, padR = 56, padT = 6;
+  const chartW = w - padL - padR;
+  const n = entries.length;
+  const rowH = Math.min(26, (h-padT)/n);
+  const maxV = Math.max(...entries.map(e=>e[1])) * 1.1 || 1;
+
+  function paint(hoverIdx){
+    ctx.clearRect(0,0,w,h);
+    const tc = getThemeColors();
+    entries.forEach(([label,val],i)=>{
+      const yy = padT + i*rowH;
+      const isHover = hoverIdx===i;
+      if (isHover){ ctx.fillStyle = tc.accent+'14'; ctx.fillRect(0, yy, w, rowH); }
+      ctx.fillStyle = isHover ? tc.text : tc.muted; ctx.font = '11px Inter, sans-serif'; ctx.textAlign = 'right';
+      const shortLabel = label.length>15 ? label.slice(0,14)+'…' : label;
+      ctx.fillText(shortLabel, padL-8, yy+rowH*0.64);
+      const barW = Math.max((val/maxV)*chartW, 2);
+      ctx.fillStyle = colorFn(i);
+      ctx.fillRect(padL, yy+rowH*0.2, barW, rowH*0.6);
+      if (isHover){ ctx.strokeStyle=tc.text; ctx.lineWidth=1; ctx.strokeRect(padL, yy+rowH*0.2, barW, rowH*0.6); }
+      ctx.fillStyle = tc.text; ctx.font = '10.5px "IBM Plex Mono", monospace'; ctx.textAlign = 'left';
+      ctx.fillText(fmtVal(val), padL+barW+6, yy+rowH*0.64);
+    });
+    ctx.textAlign = 'left';
+  }
+  paint(null);
+
+  canvas.onmousemove = (e)=>{
+    const rect = canvas.getBoundingClientRect();
+    const my = e.clientY - rect.top;
+    const idx = Math.floor((my-padT)/rowH);
+    if (idx<0 || idx>=n){ paint(null); hideChartTooltip(); return; }
+    paint(idx);
+    const [label,val] = entries[idx];
+    showChartTooltip(e.clientX, e.clientY, label, [{name:'Value', color:colorFn(idx), value: fmtVal(val)}]);
+  };
+  canvas.onmouseleave = ()=>{ paint(null); hideChartTooltip(); };
+}
+
+function renderByLengthChart(group, date){
+  const days = [...new Set(state.rows.filter(r=>r.acriss===group && r.date===date && !state.excluded.has(r.provider)).map(r=>r.day))].sort((a,b)=>a-b);
+  const mins=[], avgs=[], wheego=[];
+  days.forEach(d=>{
+    const list = state.rows.filter(r=>r.acriss===group && r.date===date && r.day===d && !state.excluded.has(r.provider)).map(r=>r.price);
+    mins.push(list.length ? Math.min(...list) : null);
+    avgs.push(list.length ? Math.round((list.reduce((a,b)=>a+b,0)/list.length)*100)/100 : null);
+    const res = state.results.find(r=>r.acriss===group && r.date===date && r.day===d);
+    wheego.push(res ? res.ourPrice : null);
+  });
+  const tc = getThemeColors();
+  drawLineChart(document.getElementById('chartByLength'), days.map(d=>d+'d'), [
+    {name:'Market min', color:tc.muted, data:mins},
+    {name:'Market avg', color:tc.mutedLine, data:avgs, dashed:true},
+    {name:'Wheego price', color:tc.accent, data:wheego, width:2}
+  ]);
+}
+
+function renderByProviderChart(group, date){
+  const rows = state.rows.filter(r=>r.acriss===group && r.date===date && !state.excluded.has(r.provider));
+  const byProv = {};
+  rows.forEach(r=>{ (byProv[r.provider] = byProv[r.provider]||[]).push(r.price); });
+  const entries = Object.entries(byProv)
+    .map(([p,list])=>[p, Math.round((list.reduce((a,b)=>a+b,0)/list.length)*100)/100])
+    .sort((a,b)=>a[1]-b[1]);
+  const tc = getThemeColors();
+  drawBarChart(document.getElementById('chartByProvider'), entries, i => i===0 ? tc.green : tc.border);
+}
+
+function renderByDateChart(group, day){
+  const dates = [...new Set(state.rows.filter(r=>r.acriss===group && r.day===day && !state.excluded.has(r.provider)).map(r=>r.date))].sort();
+  const mins=[], wheego=[], colors=[];
+  const tc = getThemeColors();
+  dates.forEach(dt=>{
+    const list = state.rows.filter(r=>r.acriss===group && r.date===dt && r.day===day && !state.excluded.has(r.provider)).map(r=>r.price);
+    mins.push(list.length ? Math.min(...list) : null);
+    const res = state.results.find(r=>r.acriss===group && r.date===dt && r.day===day);
+    wheego.push(res ? res.ourPrice : null);
+    colors.push(res && res.isTop ? tc.green : tc.accent);
+  });
+  drawLineChart(document.getElementById('chartByDate'), dates, [
+    {name:'Market min', color:tc.muted, data:mins},
+    {name:'Wheego price', color:tc.accent, data:wheego, width:2, pointColors:colors, pointRadius:4}
+  ]);
+}
+
+// Distinct colour per line so several competitors stay readable on one chart —
+// deliberately varied hues here (not just the theme accent) purely for series differentiation;
+// these stay fixed across themes since they're chosen for mutual contrast, not brand colour.
+const TREND_PALETTE = ['#D4AF37','#5B9BD5','#E5586A','#8FBF5E','#B07EE8','#3FBFBF','#E08E45','#C7C7C7'];
+
+function renderByCompetitorTrendChart(group, day){
+  const rows = state.rows.filter(r=>r.acriss===group && r.day===day && !state.excluded.has(r.provider));
+  const dates = [...new Set(rows.map(r=>r.date))].sort();
+  const note = document.getElementById('competitorTrendNote');
+  if (!dates.length){
+    drawLineChart(document.getElementById('chartByCompetitor'), [], []);
+    note.textContent = 'No competitor data for this group/length.';
+    return;
+  }
+  // Pick the competitors with the most data points across these dates (most comparable trend lines).
+  const byProvider = {};
+  rows.forEach(r=>{ (byProvider[r.provider] = byProvider[r.provider]||[]).push(r); });
+  const topProviders = Object.entries(byProvider)
+    .sort((a,b)=> b[1].length - a[1].length)
+    .slice(0,8)
+    .map(e=>e[0]);
+
+  const series = topProviders.map((prov,i)=>{
+    const data = dates.map(dt=>{
+      const list = rows.filter(r=>r.provider===prov && r.date===dt).map(r=>r.price);
+      return list.length ? Math.min(...list) : null;
+    });
+    return {name:prov, color: TREND_PALETTE[i % TREND_PALETTE.length], data};
+  });
+  const wheegoData = dates.map(dt=>{
+    const res = state.results.find(r=>r.acriss===group && r.date===dt && r.day===day);
+    return res ? res.ourPrice : null;
+  });
+  series.push({name:'Wheego', color: getThemeColors().text, data: wheegoData, width:2, dashed:true});
+
+  drawLineChart(document.getElementById('chartByCompetitor'), dates, series);
+  note.textContent = topProviders.length < Object.keys(byProvider).length
+    ? `Showing the ${topProviders.length} competitors with the most data points (of ${Object.keys(byProvider).length} total) for this group/length. Wheego's price is the dashed line.`
+    : `Showing all ${topProviders.length} competitors for this group/length. Wheego's price is the dashed line.`;
+}
+
+function renderWinRateChart(group){
+  const counts = {};
+  state.results.filter(r=>r.acriss===group && r.top3.length).forEach(r=>{
+    const winner = r.top3[0].provider;
+    counts[winner] = (counts[winner]||0) + 1;
+  });
+  const entries = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const tc = getThemeColors();
+  drawBarChart(document.getElementById('chartWinRate'), entries, i => i===0 ? tc.accent : tc.border, v => v + (v===1?' win':' wins'));
+}
+
+/* ---------------------------------------------------------------
+   EXPORT TAB — matches Wheelsys_Rate.xlsx: Group, Miles / pd, Mile rate,
+   Pickup start, Pickup end, Rate zone, Booking start, Booking end, then
+   per-day rates for 1-7 days and the 8-13 / 14-29 / 30+ tiers.
+--------------------------------------------------------------- */
+// ISO 'YYYY-MM-DD' -> 'DD.MM.YYYY' (for CSV / on-screen display). Leaves
+// already-formatted or unrecognised strings alone.
+function toDdMmYyyy(dateStr){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr||'');
+  if (!m) return dateStr;
+  return `${m[3]}.${m[2]}.${m[1]}`;
+}
+// ISO 'YYYY-MM-DD' -> real JS Date (for XLSX export, so the cell is an actual Excel date
+// like in Wheelsys_Rate.xlsx, not text).
+function isoToJsDate(dateStr){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr||'');
+  if (!m) return null;
+  return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+}
+// Rate code = zone + DDMMYY of the pickup date; FVAR/PVAR/PVMR get a "V" prefix
+// (matches the legacy CSV target format's convention for the 9-seat minivan groups).
+// ACRISS group -> category letter, per your mapping. Only "B" (the 9-seat minivan groups)
+// gets the "V" rate-code prefix — everything else has no prefix.
+const ACRISS_CATEGORY = {
+  MBMN:'E', MBAN:'E', ECMR:'E', ECAR:'E',
+  CCMR:'C', CDMR:'C', CDAR:'C', CFMR:'C', CFAR:'C', CWMR:'C', CWAR:'C', CPMR:'C', CPAR:'C',
+  IDMR:'I', IDAR:'I', IFMR:'I', IFAR:'I', IWMR:'I', IWAR:'I', SFMR:'I', SFAR:'I', PFAR:'I',
+  CDAH:'C', CFAH:'C', CPAH:'C',
+  IFAH:'I', SFAH:'I', PFAH:'I', FDAR:'I', PDAR:'I', FWAR:'I', PWAR:'I', FFAR:'I', SVMR:'I', SVAR:'I',
+  FVAR:'B', PVMR:'B', PVAR:'B'
+};
+function makeRateCode(zone, ddmmyyyy, group){
+  const digits = String(ddmmyyyy).replace(/\./g,'');      // DDMMYYYY
+  const ddmmyy = digits.slice(0,4) + digits.slice(6,8);    // DDMM + YY
+  // Zone loses any leading zero in the code (e.g. Hamburg's "07" -> "7010726", not "07010726") —
+  // confirmed against real HAM export files — even though the separate Rate zone column keeps "07".
+  const zoneNum = Number(zone);
+  const zonePart = isNaN(zoneNum) ? zone : String(zoneNum);
+  const code = zonePart + ddmmyy;
+  return ACRISS_CATEGORY[group]==='B' ? 'V'+code : code;
+}
+
+function getDateExportSetting(date){
+  const s = state.exportDateSettings[date];
+  if (!s) return {include:true, source:'default'};
+  return {include: s.include!==false, source: s.source||'default'};
+}
+function renderExportDateSettings(){
+  const tbody = document.getElementById('exportDateSettingsBody');
+  const dates = [...new Set(state.results.map(r=>r.date))].sort();
+  if (!dates.length){
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">Import data to see dates.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = dates.map(date=>{
+    const s = getDateExportSetting(date);
+    return `<tr>
+      <td><input type="checkbox" data-export-date-include="${date}" ${s.include?'checked':''}></td>
+      <td>${date}</td>
+      <td>
+        <select data-export-date-source="${date}">
+          <option value="default" ${s.source==='default'?'selected':''}>Use price source above</option>
+          <option value="calculated" ${s.source==='calculated'?'selected':''}>Calculated (competitor-based)</option>
+          <option value="floor" ${s.source==='floor'?'selected':''}>Floor rates only</option>
+        </select>
+      </td>
+    </tr>`;
+  }).join('');
+  tbody.querySelectorAll('input[data-export-date-include]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      const date = cb.dataset.exportDateInclude;
+      const cur = getDateExportSetting(date);
+      state.exportDateSettings[date] = {include: cb.checked, source: cur.source};
+      buildExportRows();
+      flashExportDateChange(cb.checked ? `${date} is back in the export.` : `${date} removed from the export — rebuilt just now.`, date);
+    });
+  });
+  tbody.querySelectorAll('select[data-export-date-source]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{
+      const date = sel.dataset.exportDateSource;
+      const cur = getDateExportSetting(date);
+      state.exportDateSettings[date] = {include: cur.include, source: sel.value};
+      buildExportRows();
+      const labels = {default:'the price source above', calculated:'Calculated (competitor-based)', floor:'Floor rates only'};
+      flashExportDateChange(`${date} switched to "${labels[sel.value]}" — table rebuilt just now, every row for that date updated below (highlighted). Any cell you'd hand-edited for ${date} was reset by this rebuild.`, date);
+    });
+  });
+}
+function flashExportDateChange(text, date){
+  const el = document.getElementById('exportDateChangeMsg');
+  el.textContent = text;
+  el.classList.remove('flash');
+  void el.offsetWidth; // restart the CSS animation
+  el.classList.add('flash');
+  if (date){
+    document.querySelectorAll(`#exportBody tr[data-export-date="${date}"]`).forEach(tr=>{
+      tr.classList.remove('row-flash');
+      void tr.offsetWidth;
+      tr.classList.add('row-flash');
+    });
+  }
+}
+
+function buildExportRows(){
+  const meta = {
+    zone: document.getElementById('metaZone').value,
+    miles: document.getElementById('metaMiles').value,
+    mileRate: document.getElementById('metaMileRate').value
+  };
+  const globalFloorOnly = state.exportPriceSource === 'floor';
+  // One block of rows per pickup date found in the import — 5 dates in means
+  // 5 rows per group out, 9 dates means 9 rows per group, etc. If nothing's been imported
+  // and we're in floor-only mode, fall back to the manually typed date(s) instead.
+  let dates = [...new Set(state.results.map(r=>r.date))].sort();
+  if (!dates.length && globalFloorOnly){
+    dates = document.getElementById('floorOnlyDates').value
+      .split(',').map(d=>d.trim()).filter(Boolean);
+  }
+  // Per-date overrides: skip excluded dates, and resolve each date's own price source
+  // ("default" falls back to the global Price source radio above).
+  dates = dates.filter(date => getDateExportSetting(date).include);
+  const groups = ACRISS_GROUPS.filter(g=>state.floor[g]);
+
+  const rows = [];
+  dates.forEach(date=>{
+    const dateSource = getDateExportSetting(date).source;
+    const floorOnly = dateSource==='default' ? globalFloorOnly : dateSource==='floor';
+    groups.forEach(group=>{
+      // Per-day rate for a given rental length = that length's total price ÷ the number of days.
+      const perDay = (d)=>{
+        if (!floorOnly){
+          const hit = state.results.find(r=>r.date===date && r.day===d && r.acriss===group);
+          if (hit) return Math.round((hit.ourPrice/d)*100)/100;
+        }
+        const fv = floorTotal(group, d);
+        return isNaN(fv) ? '' : Math.round((fv/d)*100)/100;
+      };
+      const d1=perDay(1),d2=perDay(2),d3=perDay(3),d4=perDay(4),d5=perDay(5),d6=perDay(6),d7=perDay(7);
+      // Any day-length within 8-13 / 14-29 / 30+ counts toward that tier — pick whichever gives the
+      // cheapest TOTAL price within the range, then convert that specific length to a per-day rate;
+      // fall back to the floor table's own daily rate when nothing in that range exists (always, in floor-only mode).
+      const bucketPerDay = (rangeMin, rangeMax, floorDay)=>{
+        if (!floorOnly){
+          const candidates = state.results
+            .filter(r=>r.date===date && r.acriss===group && r.day>=rangeMin && r.day<=rangeMax)
+            .sort((a,b)=>a.ourPrice-b.ourPrice);
+          if (candidates.length) return Math.round((candidates[0].ourPrice/candidates[0].day)*100)/100;
+        }
+        const fv = floorTotal(group, floorDay);
+        return isNaN(fv) ? '' : Math.round((fv/floorDay)*100)/100;
+      };
+      const d813 = bucketPerDay(8, 13, 10);
+      const d1429 = bucketPerDay(14, 29, 14);
+      const d30p = bucketPerDay(30, 9999, 30);
+      rows.push({
+        group, miles: meta.miles, mileRate: meta.mileRate, zone: meta.zone,
+        pickStart: date, pickEnd: date, bookStart: dates[0], bookEnd: dates[0],
+        d1,d2,d3,d4,d5,d6,d7, d813, d1429, d30p
+      });
+    });
+  });
+  state.exportRows = rows;
+  const floorDateCount = dates.filter(d=>{
+    const src = getDateExportSetting(d).source;
+    return src==='default' ? globalFloorOnly : src==='floor';
+  }).length;
+  const sourceNote = floorDateCount===0 ? '' : floorDateCount===dates.length ? ' (floor rates only)' : ` (${floorDateCount} date(s) floor-only, ${dates.length-floorDateCount} calculated)`;
+  document.getElementById('exportSummary').textContent = `${dates.length} date${dates.length===1?'':'s'} × ${groups.length} groups = ${rows.length} rows` + sourceNote;
+  renderExportTable();
+}
+document.getElementById('btnBuildExport').addEventListener('click', buildExportRows);
+
+function renderExportTable(){
+  const body = document.getElementById('exportBody');
+  if (!state.exportRows.length){ body.innerHTML = '<tr><td colspan="18" class="empty">Click "Build export table" once you have results.</td></tr>'; return; }
+  const editableFields = ['miles','mileRate','d1','d2','d3','d4','d5','d6','d7','d813','d1429','d30p'];
+  body.innerHTML = state.exportRows.map((r,idx)=>`
+    <tr data-export-date="${r.pickStart}">
+      <td style="font-weight:600;">${r.group}</td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-f="miles" value="${r.miles}"></td>
+      <td><input type="number" step="0.01" data-idx="${idx}" data-f="mileRate" value="${r.mileRate}"></td>
+      <td>${toDdMmYyyy(r.pickStart)}</td><td>${toDdMmYyyy(r.pickEnd)}</td>
+      <td><input type="number" step="1" data-idx="${idx}" data-f="zone" value="${r.zone}"></td>
+      <td>${toDdMmYyyy(r.bookStart)}</td><td>${toDdMmYyyy(r.bookEnd)}</td>
+      ${['d1','d2','d3','d4','d5','d6','d7','d813','d1429','d30p'].map(f=>`<td><input type="number" step="0.01" data-idx="${idx}" data-f="${f}" value="${r[f]}"></td>`).join('')}
+    </tr>
+  `).join('');
+  body.querySelectorAll('input').forEach(inp=>{
+    inp.addEventListener('input', ()=>{
+      const idx = parseInt(inp.dataset.idx,10), f = inp.dataset.f;
+      state.exportRows[idx][f] = inp.value==='' ? '' : parseFloat(inp.value);
+    });
+  });
+}
+
+const EXPORT_HEADERS = ["Group","Miles / pd","Mile rate","Pickup start","Pickup end","Rate zone","Booking start","Booking end",
+"1  per day","2  per day","3  per day","4  per day","5  per day","6  per day","7  per day",
+"8 - 13  per day","14 - 29  per day","30+ per day"];
+
+function rowToArrayXlsx(r){
+  const num = (v)=> (v===''||v===undefined||v===null) ? null : Number(v);
+  return [r.group, num(r.miles), num(r.mileRate),
+    isoToJsDate(r.pickStart), isoToJsDate(r.pickEnd), (r.zone===''?null:Number(r.zone)||r.zone),
+    isoToJsDate(r.bookStart), isoToJsDate(r.bookEnd),
+    num(r.d1), num(r.d2), num(r.d3), num(r.d4), num(r.d5), num(r.d6), num(r.d7), num(r.d813), num(r.d1429), num(r.d30p)];
+}
+
+// The legacy 27-column CSV format (matches FRA_AP_*.csv): 4 header rows, then one data
+// row per group per pickup date. Booking start/end is constant across the whole file —
+// the earliest pickup date in the batch — while Pickup start/end follows each row's own date.
+const LEGACY_CSV_HEADER_ROWS = [
+  ['Group','Rate Name','Rate code','Booking start date','Booking end date','Pickup start date','Pickup end date','Priority','Company','','','','','','','','','','','','','','','','','','Additionals'],
+  ['min days','','','','','','','','','1','2','3','4','5','6','7','8','14','30','weekend','destinations','','','','Broker','LEVEL','WG1/WG2'],
+  ['max days','','','','','','','','','1','2','3','4','5','6','7','13','29','999','','location','region/group','airport','downtown','Broker','',''],
+  ['calculation','','','','','','','','','per day','per day','per day','per day','per day','per day','per day','per day','per day','per day','','','','','','','','']
+];
+function csvCell(v){
+  if (v===undefined || v===null || v==='') return '';
+  return typeof v === 'number' ? csvNum(v) : String(v);
+}
+function buildLegacyCsvLines(){
+  const meta = {
+    priority: document.getElementById('metaPriority').value,
+    company: document.getElementById('metaCompany').value,
+    wg: document.getElementById('metaWg').value,
+    additionals: document.getElementById('metaAdditionals').value
+  };
+  const lines = LEGACY_CSV_HEADER_ROWS.map(r=>r.join(';'));
+  state.exportRows.forEach(r=>{
+    const ddmmyyyy = toDdMmYyyy(r.pickStart);
+    const bookingDdmmyyyy = toDdMmYyyy(r.bookStart);
+    const rateCode = makeRateCode(r.zone || '51', ddmmyyyy, r.group);
+    const row = [
+      r.group, rateCode, rateCode, bookingDdmmyyyy, bookingDdmmyyyy, ddmmyyyy, ddmmyyyy,
+      meta.priority, meta.company,
+      r.d1, r.d2, r.d3, r.d4, r.d5, r.d6, r.d7, r.d813, r.d1429, r.d30p,
+      '', r.zone, '', 'x', 'x', '', meta.wg, meta.additionals
+    ];
+    lines.push(row.map(csvCell).join(';'));
+  });
+  return lines;
+}
+
+document.getElementById('btnExportCsv').addEventListener('click', ()=>{
+  if (!state.exportRows.length) buildExportRows();
+  if (!state.exportRows.length){ alert('No data to export yet — import competitor rates first.'); return; }
+  const lines = buildLegacyCsvLines();
+  const blob = new Blob(["\uFEFF"+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'rate-export.csv';
+  a.click();
+});
+
+document.getElementById('btnExportXlsx').addEventListener('click', ()=>{
+  if (!state.exportRows.length) buildExportRows();
+  if (!state.exportRows.length){ alert('No data to export yet — import competitor rates first.'); return; }
+  if (typeof XLSX === 'undefined'){ alert('XLSX library failed to load (no internet in this preview). Use CSV export instead.'); return; }
+  const data = [EXPORT_HEADERS].concat(state.exportRows.map(rowToArrayXlsx));
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  // Real Excel date cells for Pickup start/end and Booking start/end, matching Wheelsys_Rate.xlsx
+  // (same mm-dd-yy number format as the template).
+  const dateCols = [3,4,6,7];
+  for (let row=1; row<data.length; row++){
+    dateCols.forEach(col=>{
+      const addr = XLSX.utils.encode_cell({r:row, c:col});
+      if (ws[addr] && ws[addr].v instanceof Date){ ws[addr].t='d'; ws[addr].z='mm-dd-yy'; }
+    });
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  XLSX.writeFile(wb, 'rate-export.xlsx');
+});
+
+/* ---------------------------------------------------------------
+   INIT
+--------------------------------------------------------------- */
+// Floor rates: saved only when explicitly asked (Save floor rates button), applied
+// automatically on load if present — otherwise the built-in defaults stand.
+(function loadSavedFloorRates(){
+  try{
+    const raw = localStorage.getItem('rjai_floorRates');
+    if (raw){
+      const saved = JSON.parse(raw) || {};
+      Object.keys(saved).forEach(g=>{ state.floor[g] = saved[g]; });
+    }
+  } catch(e){ /* storage unavailable — carry on with the built-in defaults */ }
+})();
+renderFloor();
+loadSavedPricingRules();
+</script>
+</body>
+</html>
